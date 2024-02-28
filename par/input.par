@@ -1,0 +1,20 @@
+#Advection test case parameters 
+#Test case
+3
+# N (number of cells)
+96
+#Time step
+900.0
+#hord scheme
+0
+#departure point (1 or 2)
+1
+#inner advection (1 or 2)
+1
+# Number of plots
+12
+#-----------Description of parameters -------------------------------------
+#Test case
+1 - Advection of a square wave  using constant wind 
+2 - Advection of a Gaussian hill using constant wind 
+3 - Advection of a Gaussian hill using non constant wind 

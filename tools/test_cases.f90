@@ -89,7 +89,6 @@ subroutine init_scalar(qa, bd, gridstruct, test_case)
       lonc = pio4
       latc = 0.d0
       call sph2cart(lonc, latc, pc(1), pc(2), pc(3))
-      print*, pc
       do p =1, nbfaces
          do j=js,je
             do i=is,ie
@@ -176,18 +175,23 @@ subroutine calc_winds(uc, vc, bd, gridstruct, time, test_case)
    c_l2contra => gridstruct%c_l2contra
    d_l2contra => gridstruct%d_l2contra
 
-   ! u at cgrid
+   !$OMP PARALLEL DO &
+   !$OMP DEFAULT(NONE) & 
+   !$OMP SHARED(uc, vc) & 
+   !$OMP SHARED(c_l2contra, d_l2contra, cgrid, dgrid) &
+   !$OMP SHARED(isd, ied, jsd, jed, nbfaces, test_case, time) &
+   !$OMP PRIVATE(i, j, ulon, vlat) &
+   !$OMP SCHEDULE(static) 
    do p = 1, nbfaces
+      ! u at cgrid
       do i = isd, ied+1
          do j = jsd, jed
             call compute_wind(ulon, vlat, cgrid(i,j,p)%lon, cgrid(i,j,p)%lat, time, test_case)
             uc(i,j,p) = c_l2contra(1,1,i,j,p)*ulon + c_l2contra(1,2,i,j,p)*vlat
          enddo
       enddo
-   enddo
 
-   ! v at dgrid
-   do p = 1, nbfaces
+      ! v at dgrid
       do i = isd, ied
          do j = jsd, jed+1
             call compute_wind(ulon, vlat, dgrid(i,j,p)%lon, dgrid(i,j,p)%lat, time, test_case)
@@ -195,7 +199,7 @@ subroutine calc_winds(uc, vc, bd, gridstruct, time, test_case)
          enddo
       enddo
    enddo
-
+   !$OMP END PARALLEL DO
 end subroutine calc_winds
 
 !-------------------------------------------------
@@ -216,15 +220,15 @@ subroutine compute_wind(u, v, lon, lat, t, test_case)
          v     = -u0*dsin(lon)*dsin(alpha)
 
       case(3)
-       u0   =  2.d0*pi*erad/Tf ! Wind speed
-       lonp = lon-2.d0*pi*t/Tf
-       u    = u0*(dsin((lonp))**2)*(dsin(2.*lat))*(dcos(pi*t/Tf))+u0*dcos(lat)
-       v    = u0*(dsin(2*(lonp)))*(dcos(lat))*(dcos(pi*t/Tf))
+         u0   =  2.d0*pi*erad/Tf ! Wind speed
+         lonp = lon-2.d0*pi*t/Tf
+         u    = u0*(dsin((lonp))**2)*(dsin(2.*lat))*(dcos(pi*t/Tf))+u0*dcos(lat)
+         v    = u0*(dsin(2*(lonp)))*(dcos(lat))*(dcos(pi*t/Tf))
 
       case(4)
-       u0 =  2.d0*pi*erad/Tf ! Wind speed
-       u  = -u0*(dsin((lon+pi)/2.d0)**2)*(dsin(2.d0*lat))*(dcos(lat)**2)*(dcos(pi*t/Tf))
-       v  = (u0/2.d0)*(dsin((lon+pi)))*(dcos(lat)**3)*(dcos(pi*t/Tf))
+         u0 =  2.d0*pi*erad/Tf ! Wind speed
+         u  = -u0*(dsin((lon+pi)/2.d0)**2)*(dsin(2.d0*lat))*(dcos(lat)**2)*(dcos(pi*t/Tf))
+         v  = (u0/2.d0)*(dsin((lon+pi)))*(dcos(lat)**3)*(dcos(pi*t/Tf))
 
       case default
          print*, 'error in compute_wind: invalid testcase, ', test_case

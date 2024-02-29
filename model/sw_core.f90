@@ -18,27 +18,18 @@ subroutine time_averaged_cfl(gridstruct, bd, crx, cry, uc_old, vc_old, uc, vc, d
     type(fv_grid_bounds_type), intent(IN) :: bd
     type(fv_grid_type), intent(IN), target :: gridstruct
 
-    real(R_GRID), intent(INOUT), dimension(bd%is:bd%ie+1  , bd%jsd:bd%jed  ) :: crx
-    real(R_GRID), intent(INOUT), dimension(bd%isd:bd%ied  , bd%js:bd%je+1  ) :: cry
+    real(R_GRID), intent(INOUT), dimension(bd%is:bd%ie+1  , bd%jsd:bd%jed, 1:nbfaces) :: crx
+    real(R_GRID), intent(INOUT), dimension(bd%isd:bd%ied  , bd%js:bd%je+1, 1:nbfaces) :: cry
 
-    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied+1, bd%jsd:bd%jed  ) :: uc_old
-    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied  , bd%jsd:bd%jed+1) :: vc_old
+    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied+1, bd%jsd:bd%jed  , 1:nbfaces) :: uc_old
+    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied  , bd%jsd:bd%jed+1, 1:nbfaces) :: vc_old
 
-    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied+1, bd%jsd:bd%jed  ) :: uc
-    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied  , bd%jsd:bd%jed+1) :: vc
+    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied+1, bd%jsd:bd%jed  , 1:nbfaces) :: uc
+    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied  , bd%jsd:bd%jed+1, 1:nbfaces) :: vc
 
     real(R_GRID), intent(IN) :: dt
 
-    integer, intent(IN):: dp ! inner departute point method !1 - Euler; 2-RK2
-
-    ! aux
-    integer :: i, j
-    integer :: is,  ie,  js,  je
-
-    is  = bd%is
-    ie  = bd%ie
-    js  = bd%js
-    je  = bd%je
+    integer, intent(IN):: dp ! departute point method !1 - Euler; 2-RK2
 
     call departure_cfl(gridstruct, bd, crx, cry, uc_old, vc_old, uc, vc, dp, dt)
 
@@ -53,19 +44,19 @@ subroutine departure_cfl(gridstruct, bd, crx, cry, &
     type(fv_grid_bounds_type), intent(IN) :: bd
     type(fv_grid_type), intent(IN), target :: gridstruct 
 
-    real(R_GRID), intent(INOUT), dimension(bd%is:bd%ie+1, bd%jsd:bd%jed  ) :: crx
-    real(R_GRID), intent(INOUT), dimension(bd%isd:bd%ied, bd%js:bd%je+1  ) :: cry
+    real(R_GRID), intent(INOUT), dimension(bd%is:bd%ie+1  , bd%jsd:bd%jed, 1:nbfaces) :: crx
+    real(R_GRID), intent(INOUT), dimension(bd%isd:bd%ied  , bd%js:bd%je+1, 1:nbfaces) :: cry
 
-    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied+1, bd%jsd:bd%jed  ) :: uc_old
-    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied  , bd%jsd:bd%jed+1) :: vc_old
+    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied+1, bd%jsd:bd%jed  , 1:nbfaces) :: uc_old
+    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied  , bd%jsd:bd%jed+1, 1:nbfaces) :: vc_old
 
-    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied+1, bd%jsd:bd%jed  ) :: uc
-    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied  , bd%jsd:bd%jed+1) :: vc
+    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied+1, bd%jsd:bd%jed  , 1:nbfaces) :: uc
+    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied  , bd%jsd:bd%jed+1, 1:nbfaces) :: vc
 
-    real(R_GRID), dimension(bd%is-1:bd%ie+2  , bd%jsd:bd%jed  ) :: crx_time_centered
-    real(R_GRID), dimension(bd%isd:bd%ied  , bd%js-1:bd%je+2  ) :: cry_time_centered
-    real(R_GRID), dimension(bd%is:bd%ie+1  , bd%jsd:bd%jed  ) :: crx_old
-    real(R_GRID), dimension(bd%isd:bd%ied  , bd%js:bd%je+1  ) :: cry_old
+    real(R_GRID), dimension(bd%is-1:bd%ie+2, bd%jsd:bd%jed  , 1:nbfaces) :: crx_time_centered
+    real(R_GRID), dimension(bd%isd:bd%ied  , bd%js-1:bd%je+2, 1:nbfaces) :: cry_time_centered
+    real(R_GRID), dimension(bd%is:bd%ie+1  , bd%jsd:bd%jed  , 1:nbfaces) :: crx_old
+    real(R_GRID), dimension(bd%isd:bd%ied  , bd%js:bd%je+1  , 1:nbfaces) :: cry_old
 
 
     real(R_GRID), intent(IN) :: dt
@@ -74,7 +65,7 @@ subroutine departure_cfl(gridstruct, bd, crx, cry, &
 
     ! aux
     real(R_GRID) :: a, a1, a2, c1, c2
-    integer :: i, j
+    integer :: i, j, p
     integer :: is,  ie,  js,  je
     integer :: isd, ied, jsd, jed
 
@@ -97,48 +88,58 @@ subroutine departure_cfl(gridstruct, bd, crx, cry, &
          call  compute_cfl(gridstruct, bd, crx_old          , cry_old          , uc_old, vc_old, dt, 0)
          call  compute_cfl(gridstruct, bd, crx_time_centered, cry_time_centered, uc    , vc    , dt, 1)
 
-         ! RK2
-         ! cfl for dp in x direction
-         do j = jsd, jed
-             do i = is, ie+1
-                ! Linear interpolation weight
-                a = crx_old(i,j)*0.5d0
-                ! Upwind linear interpolation
-                if (a>0.d0) then
-                   c1 = crx_time_centered(i-1,j)
-                   c2 = crx_time_centered(i,j)
-                   a1 = a
-                   a2 = 1.d0-a
-                else
-                   c1 = crx_time_centered(i,j)
-                   c2 = crx_time_centered(i+1,j)
-                   a1 = 1.d0+a
-                   a2 = -a
-                end if
-                crx(i,j) = a1*c1 + a2*c2
+         !$OMP PARALLEL DO &
+         !$OMP DEFAULT(NONE) & 
+         !$OMP SHARED(crx, cry, crx_old, cry_old, crx_time_centered, cry_time_centered) &
+         !$OMP SHARED(is, ie, js, je, nbfaces) &
+         !$OMP SHARED(isd, ied, jsd, jed) &
+         !$OMP PRIVATE(i, j, a1, a2, a, c1, c2) &
+         !$OMP SCHEDULE(static)  
+         do p = 1, nbfaces
+            ! RK2
+            ! cfl for dp in x direction
+            do j = jsd, jed
+                do i = is, ie+1
+                   ! Linear interpolation weight
+                   a = crx_old(i,j,p)*0.5d0
+                   ! Upwind linear interpolation
+                   if (a>0.d0) then
+                      c1 = crx_time_centered(i-1,j,p)
+                      c2 = crx_time_centered(i,j,p)
+                      a1 = a
+                      a2 = 1.d0-a
+                   else
+                      c1 = crx_time_centered(i,j,p)
+                      c2 = crx_time_centered(i+1,j,p)
+                      a1 = 1.d0+a
+                      a2 = -a
+                   end if
+                   crx(i,j,p) = a1*c1 + a2*c2
+                end do
              end do
-          end do
 
-          ! cfl for dp in y direction
-          do i = isd, ied
-             do j = js, je+1
-                ! Linear interpolation weight
-                a = cry_old(i,j)*0.5d0
-                ! Upwind linear interpolation
-                if (a>0.d0) then
-                   c1 = cry_time_centered(i,j-1)
-                   c2 = cry_time_centered(i,j)
-                   a1 = a
-                   a2 = 1.d0-a
-                else
-                   c1 = cry_time_centered(i,j)
-                   c2 = cry_time_centered(i,j+1)
-                   a1 = 1.d0+a
-                   a2 = -a
-                end if
-                cry(i,j) = a1*c1 + a2*c2
+             ! cfl for dp in y direction
+             do i = isd, ied
+                do j = js, je+1
+                   ! Linear interpolation weight
+                   a = cry_old(i,j,p)*0.5d0
+                   ! Upwind linear interpolation
+                   if (a>0.d0) then
+                      c1 = cry_time_centered(i,j-1,p)
+                      c2 = cry_time_centered(i,j,p)
+                      a1 = a
+                      a2 = 1.d0-a
+                   else
+                      c1 = cry_time_centered(i,j,p)
+                      c2 = cry_time_centered(i,j+1,p)
+                      a1 = 1.d0+a
+                      a2 = -a
+                   end if
+                   cry(i,j,p) = a1*c1 + a2*c2
+                end do
              end do
-          end do
+         enddo
+         !$OMP END PARALLEL DO
 
     end select
 
@@ -150,16 +151,16 @@ subroutine compute_cfl(gridstruct, bd, crx, cry, uc, vc, dt, h)
    !--------------------------------------------------
    type(fv_grid_bounds_type), intent(IN) :: bd
    type(fv_grid_type), intent(IN), target :: gridstruct 
-   real(R_GRID), intent(INOUT), dimension(bd%is-h:bd%ie+1+h  , bd%jsd:bd%jed  ) :: crx
-   real(R_GRID), intent(INOUT), dimension(bd%isd:bd%ied  , bd%js-h:bd%je+1+h  ) :: cry
-   real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied+1, bd%jsd:bd%jed  ) :: uc
-   real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied  , bd%jsd:bd%jed+1) :: vc
+   real(R_GRID), intent(INOUT), dimension(bd%is-h:bd%ie+1+h, bd%jsd:bd%jed    , 1:nbfaces) :: crx
+   real(R_GRID), intent(INOUT), dimension(bd%isd:bd%ied    , bd%js-h:bd%je+1+h, 1:nbfaces) :: cry
+   real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied+1  , bd%jsd:bd%jed    , 1:nbfaces) :: uc
+   real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied    , bd%jsd:bd%jed+1  , 1:nbfaces) :: vc
    real(R_GRID), intent(IN) :: dt
    integer, intent(IN):: h
    real(R_GRID), pointer, dimension(:, :) :: dxc, dyc
 
    ! aux
-   integer :: i, j
+   integer :: i, j, p
    integer :: is,  ie,  js,  je
    integer :: isd, ied, jsd, jed
    real(R_GRID) :: dx, dy
@@ -175,34 +176,45 @@ subroutine compute_cfl(gridstruct, bd, crx, cry, uc, vc, dt, h)
 
    dxc => gridstruct%dx_u
    dyc => gridstruct%dy_v
- 
-   ! Compute CFL at timestep n
-   do j=jsd,jed
-      do i=is-h,ie+h+1
-        crx(i,j) = uc(i,j)*dt/dxc(i,j)
-     enddo
-   enddo
 
-   do j=js-h,je+h+1
-      do i=isd,ied
-        cry(i,j) = vc(i,j)*dt/dyc(i,j)
-     enddo
+   !$OMP PARALLEL DO &
+   !$OMP DEFAULT(NONE) & 
+   !$OMP SHARED(crx, cry, uc, vc) &
+   !$OMP SHARED(dt, dxc, dyc) & 
+   !$OMP SHARED(is, ie, js, je, nbfaces, h) &
+   !$OMP SHARED(isd, ied, jsd, jed) &
+   !$OMP PRIVATE(i, j) &
+   !$OMP SCHEDULE(static)  
+   do p = 1, nbfaces
+      ! Compute CFL at timestep n
+      do j=jsd,jed
+         do i=is-h,ie+h+1
+           crx(i,j,p) = uc(i,j,p)*dt/dxc(i,j)
+        enddo
+      enddo
+
+      do j=js-h,je+h+1
+         do i=isd,ied
+           cry(i,j,p) = vc(i,j,p)*dt/dyc(i,j)
+        enddo
+      enddo
    enddo
+   !$OMP END PARALLEL DO
 end subroutine compute_cfl
 
 subroutine compute_ra_x_and_ra_y(ra_x, ra_y, xfx, yfx, crx, cry, gridstruct, bd)
     type(fv_grid_bounds_type), intent(IN) :: bd
     type(fv_grid_type), intent(IN), target :: gridstruct
-    real(R_GRID), intent(INOUT), dimension(bd%is:bd%ie  , bd%jsd:bd%jed  ) :: ra_x
-    real(R_GRID), intent(IN)   , dimension(bd%is:bd%ie+1, bd%jsd:bd%jed  ) :: xfx
-    real(R_GRID), intent(IN)   , dimension(bd%is:bd%ie+1, bd%jsd:bd%jed  ) :: crx
+    real(R_GRID), intent(INOUT), dimension(bd%is:bd%ie  , bd%jsd:bd%jed, 1:nbfaces) :: ra_x
+    real(R_GRID), intent(IN)   , dimension(bd%is:bd%ie+1, bd%jsd:bd%jed, 1:nbfaces) :: xfx
+    real(R_GRID), intent(IN)   , dimension(bd%is:bd%ie+1, bd%jsd:bd%jed, 1:nbfaces) :: crx
 
-    real(R_GRID), intent(INOUT), dimension(bd%isd:bd%ied, bd%js:bd%je    ) :: ra_y
-    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied, bd%js:bd%je+1  ) :: yfx
-    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied, bd%js:bd%je+1  ) :: cry
+    real(R_GRID), intent(INOUT), dimension(bd%isd:bd%ied, bd%js:bd%je  , 1:nbfaces) :: ra_y
+    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied, bd%js:bd%je+1, 1:nbfaces) :: yfx
+    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied, bd%js:bd%je+1, 1:nbfaces) :: cry
 
     ! Local:
-    integer :: i, j
+    integer :: i, j, p
     integer :: is, ie, js, je
     integer :: isd, ied, jsd, jed
  
@@ -219,18 +231,89 @@ subroutine compute_ra_x_and_ra_y(ra_x, ra_y, xfx, yfx, crx, cry, gridstruct, bd)
     jsd = bd%jsd
     jed = bd%jed
 
-
-    do j=jsd,jed
-       do i=is,ie
-          ra_x(i,j) = area(i,j) + xfx(i,j) - xfx(i+1,j)
+    !$OMP PARALLEL DO &
+    !$OMP DEFAULT(NONE) & 
+    !$OMP SHARED(is, ie, js, je, nbfaces) &
+    !$OMP SHARED(isd, ied, jsd, jed) &
+    !$OMP SHARED(ra_x, ra_y, area, xfx, yfx) &
+    !$OMP PRIVATE(i, j) &
+    !$OMP SCHEDULE(static) 
+    do p = 1, nbfaces
+       do j=jsd,jed
+          do i=is,ie
+             ra_x(i,j,p) = area(i,j) + xfx(i,j,p) - xfx(i+1,j,p)
+          enddo
+       enddo
+       do j=js,je
+          do i=isd,ied
+             ra_y(i,j,p) = area(i,j) + yfx(i,j,p) - yfx(i,j+1,p)
+          enddo
        enddo
     enddo
-    do j=js,je
-       do i=isd,ied
-          ra_y(i,j) = area(i,j) + yfx(i,j) - yfx(i,j+1)
-       enddo
-    enddo
+   !$OMP END PARALLEL DO
 end subroutine compute_ra_x_and_ra_y
+
+
+subroutine compute_xfx_and_yfx(xfx, yfx, crx, cry, gridstruct, bd, adv_scheme)
+    type(fv_grid_bounds_type), intent(IN) :: bd
+    type(fv_grid_type), intent(IN), target :: gridstruct
+    real(R_GRID), intent(INOUT), dimension(bd%is:bd%ie+1, bd%jsd:bd%jed, 1:nbfaces) :: xfx
+    real(R_GRID), intent(IN)   , dimension(bd%is:bd%ie+1, bd%jsd:bd%jed, 1:nbfaces) :: crx
+    real(R_GRID), intent(INOUT), dimension(bd%isd:bd%ied, bd%js:bd%je+1, 1:nbfaces) :: yfx
+    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied, bd%js:bd%je+1, 1:nbfaces) :: cry
+    integer :: adv_scheme
+
+    ! Local:
+    integer :: i, j, p
+    integer :: is, ie, js, je
+    integer :: isd, ied, jsd, jed
+ 
+    real(R_GRID), pointer, dimension(:,:)   :: area
+    real(R_GRID), pointer, dimension(:, :) :: dx_u, dy_u
+    real(R_GRID), pointer, dimension(:, :) :: dx_v, dy_v
+    real(R_GRID), pointer, dimension(:, :) :: sina_u, sina_v
+    real(R_GRID) :: dx
+    real(R_GRID) :: dy
+
+
+    area => gridstruct%area
+    sina_u  => gridstruct%sina_c
+    sina_v  => gridstruct%sina_d
+    dx_u  => gridstruct%dx_u
+    dy_v  => gridstruct%dy_v
+    dx_v  => gridstruct%dx_v
+    dy_u  => gridstruct%dy_u
+    dx = gridstruct%dx
+    dy = gridstruct%dy
+
+    is  = bd%is
+    ie  = bd%ie
+    js  = bd%js
+    je  = bd%je
+    isd = bd%isd
+    ied = bd%ied
+    jsd = bd%jsd
+    jed = bd%jed
+
+    !$OMP PARALLEL DO &
+    !$OMP DEFAULT(NONE) & 
+    !$OMP SHARED(is, ie, js, je, nbfaces) &
+    !$OMP SHARED(isd, ied, jsd, jed, adv_scheme) &
+    !$OMP SHARED(xfx, yfx, crx, cry, dx_u, dx_v, dy_u, dy_v, sina_u, sina_v, dx, dy) &
+    !$OMP PRIVATE(i, j) &
+    !$OMP SCHEDULE(static) 
+    do p = 1, nbfaces
+      ! compute adv coeffs
+      if(adv_scheme==1) then
+         xfx(is:ie+1,jsd:jed,p) = crx(is:ie+1,jsd:jed,p)*dx_u(is:ie+1,jsd:jed)*dy_u(is:ie+1,jsd:jed)*sina_u(is:ie+1,jsd:jed)
+         yfx(isd:ied,js:je+1,p) = cry(isd:ied,js:je+1,p)*dx_v(isd:ied,js:je+1)*dy_v(isd:ied,js:je+1)*sina_v(isd:ied,js:je+1)
+      else
+         xfx(is:ie+1,jsd:jed,p) = crx(is:ie+1,jsd:jed,p)*dx*dy
+         yfx(isd:ied,js:je+1,p) = cry(isd:ied,js:je+1,p)*dx*dy
+      endif 
+    enddo
+    !$OMP END PARALLEL DO
+end subroutine compute_xfx_and_yfx
 
 subroutine div_mass_fixer(bd, gridstruct, div, flux_x, flux_y)
    type(fv_grid_bounds_type), intent(INOUT) :: bd

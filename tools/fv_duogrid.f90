@@ -257,9 +257,16 @@ subroutine cube_rmp_off_corner(bd, L, N_buffer, S_buffer, E_buffer, W_buffer, ng
   E_buffer_local = E_buffer
   W_buffer_local = W_buffer
 
-
-  !--- south
+  !$OMP PARALLEL DO &
+  !$OMP DEFAULT(NONE) & 
+  !$OMP SHARED(poly, L, stencil_start) &
+  !$OMP SHARED(S_buffer, N_buffer, W_buffer, E_buffer) &
+  !$OMP SHARED(S_buffer_local, N_buffer_local, W_buffer_local, E_buffer_local) &
+  !$OMP SHARED(is, ie, js, je, nbfaces, ng) &
+  !$OMP PRIVATE(i, j, g, g2, h) &
+  !$OMP SCHEDULE(static) 
   do p = 1, nbfaces
+     !--- south
      do g = 1, ng
         g2 = ng-g+1
         j  = js-g2
@@ -270,10 +277,8 @@ subroutine cube_rmp_off_corner(bd, L, N_buffer, S_buffer, E_buffer, W_buffer, ng
            enddo
         enddo
      enddo
-  enddo
 
-  !--- north
-  do p = 1, nbfaces
+     !--- north
      do g = 1, ng
         j = je+g
         do i = is, ie
@@ -283,10 +288,8 @@ subroutine cube_rmp_off_corner(bd, L, N_buffer, S_buffer, E_buffer, W_buffer, ng
            enddo
         enddo
      enddo
-  enddo
 
-  !--- west
-  do p = 1, nbfaces
+     !--- west
      do g = 1, ng
         g2 = ng-g+1
         i  = is-g2
@@ -297,21 +300,20 @@ subroutine cube_rmp_off_corner(bd, L, N_buffer, S_buffer, E_buffer, W_buffer, ng
            enddo
         enddo
      enddo
-  enddo
 
-  !--- east
-  do p = 1, nbfaces
-       do g = 1, ng
-          i = ie+g
-          h = g-1
-          do j = js, je
-             E_buffer(i, j, p) = 0.d0
-             do n = 1, L%order
-                E_buffer(i, j, p) = E_buffer(i, j, p) + E_buffer_local(i, stencil_start(j,g)+n-1, p)*poly(j,g,n)
-             enddo
-          enddo
-       enddo
+     !--- east
+     do g = 1, ng
+        i = ie+g
+        h = g-1
+        do j = js, je
+           E_buffer(i, j, p) = 0.d0
+           do n = 1, L%order
+              E_buffer(i, j, p) = E_buffer(i, j, p) + E_buffer_local(i, stencil_start(j,g)+n-1, p)*poly(j,g,n)
+           enddo
+        enddo
+     enddo
   enddo
+  !$OMP END PARALLEL DO
 
 end subroutine cube_rmp_off_corner
 

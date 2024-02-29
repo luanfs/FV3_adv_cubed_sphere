@@ -1,11 +1,11 @@
 #!/bin/bash
 # Creates a tarball of the bacukp files
-directory="FV3_adv_2D"
+directory="FV3_adv_cubed_sphere"
 
 # Source code files
 
 srcdir="../"
-sourcefiles="$srcdir/tools $srcdir/driver $srcdir/model $srcdir/sh $srcdir/plot $srcdir/Makefile $srcdir/main.f90"
+sourcefiles="$srcdir/tools $srcdir/driver $srcdir/model $srcdir/sh $srcdir/run $srcdir/plot $srcdir/Makefile $srcdir/main.f90"
 files="$sourcefiles"
 
 # Output name

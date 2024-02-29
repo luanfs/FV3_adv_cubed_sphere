@@ -74,9 +74,9 @@ subroutine init_scalar(qa, bd, gridstruct, test_case)
       e1(2) = e1(1)
       e1(3) = e1(1)
 
-      do p =1, nbfaces
-         do i = is, ie
-            do j = js, je
+      do p = 1, nbfaces
+         do i = isd, ied
+            do j = jsd, jed
                e2 = agrid(i,j,p)%p
                r = norm2(e2-e1)
                qa(i,j,p) = 0.1d0 + 0.9d0*dexp(-10.d0*r*r)
@@ -89,7 +89,7 @@ subroutine init_scalar(qa, bd, gridstruct, test_case)
       lonc = pio4
       latc = 0.d0
       call sph2cart(lonc, latc, pc(1), pc(2), pc(3))
-      do p =1, nbfaces
+      do p = 1, nbfaces
          do j=js,je
             do i=is,ie
                e2 = agrid(i,j,p)%p
@@ -103,7 +103,7 @@ subroutine init_scalar(qa, bd, gridstruct, test_case)
       lonc = -pio4
       latc = 0.d0
       call sph2cart(lonc, latc, pc(1), pc(2), pc(3))
-      do p =1, nbfaces
+      do p = 1, nbfaces
          do j=js,je
             do i=is,ie
                e2 = agrid(i,j,p)%p

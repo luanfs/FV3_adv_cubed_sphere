@@ -151,10 +151,12 @@ type fv_atmos_type
    integer  :: hord
    integer  :: dp
    integer  :: inner_adv
+   integer  :: mass_fixer
    integer  :: nplot = 0
    integer  :: nplots
    integer  :: plotstep
    integer  :: panel
+   logical  :: first_step=.true.
    real(R_GRID) :: lim_fac = 1.d0
 
    ! time vars

@@ -12,10 +12,11 @@ figformat='png'
 
 # some constants
 N    = 48 # number of cells
-tc   = 4  # test case
+tc   = 2  # test case
 hord = 8 # 1d adv scheme
-dp   = 1  #2d adv scheme
-iadv = 1
+dp   = 2  #2d adv scheme
+iadv = 2
+mf = 1
 nplots = 12
 
 
@@ -35,7 +36,7 @@ colormap='jet'
 
 
 
-basename = "tc"+str(tc)+"_N"+str(N)+"_hord"+str(hord)+"_iadv"+str(iadv)+"_dp"+str(dp)+"_t"
+basename = "tc"+str(tc)+"_N"+str(N)+"_hord"+str(hord)+"_iadv"+str(iadv)+"_dp"+str(dp)+"_mf"+str(mf)+"_t"
 # Get scalar field
 q = np.zeros((N,N,6,nplots+1))
 for t in range(0, nplots+1):
@@ -76,3 +77,49 @@ for t in range(0, nplots+1):
    plot_scalarfield(q[:,:,:,t], map_projection, title, output_name, colormap, qmin, qmax, dpi, figformat)
 
 
+#------------------------------------------------------------------------------------------------
+# Plot the error
+if tc<=1:
+   ts = 0
+   te = nplots+1
+elif tc>=2:
+   ts = nplots
+   te = nplots+1
+
+q_error = np.zeros((N,N,6,te))
+for t in range(ts,te):
+   print(t)
+   # basename for plotting
+   input_name  = datadir+basename+str(t)+'.txt'
+   output_name = graphdir+'adv_cs_'+basename+str(t)+'.'+figformat
+   data_info = np.loadtxt(input_name)
+
+   # get info
+   time = data_info[0]
+
+   q_error[:,:,:,t] = q[:,:,:,t] - q[:,:,:,0]
+
+emax = np.amax(abs(q_error))
+emin = -emax
+colormap='seismic'
+for t in range(ts,te):
+   # basename for plotting
+   input_name  = datadir+basename+str(t)+'.txt'
+   output_name = graphdir+'adv_cs_'+basename+str(t)+'.'+figformat
+   data_info = np.loadtxt(input_name)
+
+   # get info
+   time = data_info[0]
+   time
+   time = str("{:.2e}".format(time))
+
+   massvar = data_info[1]
+   massvar = str("{:.2e}".format(massvar))
+
+   cfl = data_info[2]
+   cfl = str("{:.2e}".format(cfl))
+   title = "N="+str(N)+", time = "+time+" days, CFL="+cfl+ '\n'+ \
+   sp +'.hord'+str(hord)+'.dp'+str(dp)
+   output_name = graphdir+'advcs_error_'+basename+str(t)+'.'+figformat
+   print(q_error[:,:,:,t])
+   plot_scalarfield(q_error[:,:,:,t], map_projection, title, output_name, colormap, emin, emax, dpi, figformat)

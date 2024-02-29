@@ -15,7 +15,7 @@ figformat = 'png'
 program = "./main"
 
 # test case
-tc = 3
+tc = 2
 
 # advection scheme
 hords = (0,8)
@@ -26,79 +26,33 @@ dps = (1,2)
 # inner adv scheme
 iadvs = (1,2)
 
+# mass fixers
+mfs = (1,1)
+
 # N
 N = 48
 Ns=[]
 
-# run the program?
-run=True
-#run=False
-
-# time step for N
-if tc==1 or tc==2:
-  dt = 3600
-elif tc==3:
-  dt = 1800
-elif tc==4:
-  dt = 6400
-else:
-  print('invalid TC')
-  exit()
-
 # number of grids
 ngrids = 3
 
-# aux routine
-def replace_line(filename, content, line_number):
-    import re
-    if os.path.exists(filename): # The file exists
-        # Open the grid file
-        file  = open(filename, "r")
-        lines = file.readlines()
-
-        # new content
-        lines[line_number-1] = content+'\n'
-
-        # Close the file
-        file.close()
-
-        # Write new file
-        with open(filename, 'w') as file:
-            for line in lines:
-                file.write(line)
-
-    else:   # The file does not exist
-        print("ERROR in edit_file_line: file "+filename+" not found in /par.")
-        exit()
- 
 # error arrays
 errors_linf = np.zeros((ngrids, len(dps), len(hords)))
 errors_l1   = np.zeros((ngrids, len(dps), len(hords)))
 errors_l2   = np.zeros((ngrids, len(dps), len(hords)))
 
 # compile the code
-subprocess.run('cd .. ; make', shell=True)
-parfile = pardir+'input.par'
 for n in range(0, ngrids):
    for m in range(0, len(hords)):
       hord = hords[m]
       for k in range(0, len(dps)):
          iadv  = iadvs[k]
          dp = dps[k]
+         mf = mfs[k]
          # update parameters
-         replace_line(parfile, str(tc)  , 3)
-         replace_line(parfile, str(N)   , 5)
-         replace_line(parfile, str(dt)  , 7)
-         replace_line(parfile, str(hord), 9)
-         replace_line(parfile, str(dp)  , 11)
-         replace_line(parfile, str(iadv)  , 13)
-
-         # Run the program
-         if run:
-            subprocess.run('cd .. ; ./main ', shell=True)
 
          # error filename
-         filename = "tc"+str(tc)+"_N"+str(N)+"_hord"+str(hord)+"_iadv"+str(iadv)+"_dp"+str(dp)+"_errors.txt"
+         filename = "tc"+str(tc)+"_N"+str(N)+"_hord"+str(hord)+"_iadv"+str(iadv)+"_dp"+str(dp)+"_mf"+str(mf)+"_errors.txt"
    
          # load the errors
          errors = np.loadtxt(datadir+filename)
@@ -109,7 +63,6 @@ for n in range(0, ngrids):
    # update N and dt
    Ns.append(N)
    N = 2*N
-   dt = dt*0.5
    
 
 # Plotting parameters

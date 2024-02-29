@@ -1,5 +1,5 @@
 #!/bin/bash
-directory="FV3_adv_2D" 
+directory="FV3_adv_cubed_sphere" 
 output=$directory".tar.bz2"
 
 
@@ -14,7 +14,7 @@ remote_host1_dir="/var/tmp/lfs"
 # remote host 2 - ybytu
 user_remote_host2="luansantos"
 remote_host2="ybytu.ime.usp.br"
-remote_host2_dir="/home/luansantos/FV3_adv_2D/"
+remote_host2_dir="/home/luansantos/FV3_adv_cubed_sphere/"
 #-------------------------------------------------------------------------------------------------------
 
  

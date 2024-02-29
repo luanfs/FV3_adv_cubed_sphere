@@ -14,7 +14,7 @@ implicit none
 
 contains
 subroutine dy_core(qa, uc, uc_old, vc_old, vc, bd, gridstruct, time, time_centered, dt, dto2, test_case, hord, lim_fac, &
-                   dp, adv_scheme, L)
+                   dp, inner_adv, mass_fixer, L)
    type(fv_grid_bounds_type), intent(INOUT) :: bd
    type(fv_grid_type), target, intent(INOUT) :: gridstruct
    type(lagrange_poly), intent(INOUT) :: L
@@ -30,7 +30,8 @@ subroutine dy_core(qa, uc, uc_old, vc_old, vc, bd, gridstruct, time, time_center
    integer, intent(IN) :: test_case
    integer, intent(IN) :: hord
    integer, intent(IN) :: dp
-   integer, intent(IN) :: adv_scheme
+   integer, intent(IN) :: inner_adv
+   integer, intent(IN) :: mass_fixer
 
    real(R_GRID) :: dx
    real(R_GRID) :: dy
@@ -53,36 +54,39 @@ subroutine dy_core(qa, uc, uc_old, vc_old, vc, bd, gridstruct, time, time_center
    integer :: js, je
    integer :: p
 
-   is  = bd%is
-   ie  = bd%ie
-   js  = bd%js
-   je  = bd%je
+   is = bd%is
+   ie = bd%ie
+   js = bd%js
+   je = bd%je
  
    ! winds
    call calc_winds(uc_old, vc_old, bd, gridstruct, time         , test_case)
    call calc_winds(uc    , vc    , bd, gridstruct, time_centered, test_case)
 
-   ! fill ghost cells
-   call ext_scalar_agrid(qa, bd, L)
-
    ! compute time averaged cfl
    call time_averaged_cfl(gridstruct, bd, crx, cry, uc_old, vc_old, uc, vc, dp, dt)
 
+   ! fill ghost cells
+   call ext_scalar_agrid(qa, bd, L)
+
    ! compute coefficients need for fluxes
-   call compute_xfx_and_yfx(xfx, yfx, crx, cry, gridstruct, bd, adv_scheme)
+   call compute_xfx_and_yfx(xfx, yfx, crx, cry, gridstruct, bd, inner_adv)
    call compute_ra_x_and_ra_y(ra_x, ra_y, xfx, yfx, crx, cry, gridstruct, bd)
 
    ! compute the fluxes
    do p = 1, nbfaces
       call fv_tp_2d(qa(:,:,p), crx(:,:,p), cry(:,:,p), hord, flux_x(:,:,p), flux_y(:,:,p), &
-                   xfx(:,:,p), yfx(:,:,p), gridstruct, bd, ra_x(:,:,p), ra_y(:,:,p), lim_fac, adv_scheme)
+                   xfx(:,:,p), yfx(:,:,p), gridstruct, bd, ra_x(:,:,p), ra_y(:,:,p), lim_fac, inner_adv)
    enddo
 
    ! fix the div mass
-   call div_mass_fixer(bd, gridstruct, div, flux_x, flux_y)
+   call div_mass_fixer(bd, gridstruct, div, flux_x, flux_y, mass_fixer)
 
    ! update the solution
+   !$OMP PARALLEL WORKSHARE DEFAULT(NONE) &
+   !$OMP SHARED(qa, div, is, ie, js, je)
    qa(is:ie,js:je,:)  = qa(is:ie,js:je,:) - div(is:ie,js:je,:)
+   !$OMP END PARALLEL WORKSHARE
 end subroutine dy_core
 
 end module dyn_core 

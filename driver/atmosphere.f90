@@ -31,6 +31,11 @@ subroutine atmosphere_main(atm)
 
       ! output data
       call atmosphere_output(atm, tstep)
+
+      print*, "Time (dys) :",   atm%time*sec2day, " of", atm%Tf*sec2day
+      print*, "Step = ", tstep, " of ", atm%total_tsteps
+      print*
+
    enddo
 
    ! compute error
@@ -85,9 +90,6 @@ subroutine atmosphere_init(atm)
    atm%uc_old = atm%uc0
    atm%vc_old = atm%vc0
  
-   !call ext_scalar_agrid(atm%qa, atm%bd, atm%L)
-   !print*, maxval(abs(atm%qa - atm%qa0))/maxval(abs(atm%qa0))
-
 
    print*,"test case  :", atm%test_case
    print*,"npx        :", atm%npx
@@ -95,10 +97,15 @@ subroutine atmosphere_init(atm)
    print*,"hord       :", atm%hord
    print*,"dp         :", atm%dp
    print*,"inner_adv  :", atm%inner_adv
+   print*,"mass fixer :", atm%mass_fixer
    print*,"nplots     :", atm%nplots
    print*,"adjusted dt:", atm%dt
    print*,"cfl        :", atm%cfl
    print*,'------------------------------------------------------------------'
+
+   !call ext_scalar_agrid(atm%qa, atm%bd, atm%L)
+   !print*, maxval(abs(atm%qa - atm%qa0))/maxval(abs(atm%qa0))
+
 
    ! compute initial diagnostics
    call atmosphere_diag(atm, first_step)
@@ -112,11 +119,10 @@ end subroutine atmosphere_init
 !--------------------------------------------------------------
 subroutine atmosphere_timestep(atm)
    type(fv_atmos_type), intent(inout) :: atm
-   logical :: first_step=.false.
 
    ! solves dynamics
    call dy_core(atm%qa, atm%uc, atm%uc_old, atm%vc, atm%vc_old, atm%bd, atm%gridstruct, atm%time, atm%time_centered,&
-                   atm%dt, atm%dto2, atm%test_case, atm%hord, atm%lim_fac, atm%dp, atm%inner_adv, atm%L)
+                   atm%dt, atm%dto2, atm%test_case, atm%hord, atm%lim_fac, atm%dp, atm%inner_adv, atm%mass_fixer, atm%L)
 
    ! update times
    atm%time          = atm%time + atm%dt
@@ -155,7 +161,7 @@ subroutine atmosphere_output(atm, step)
       ie = atm%bd%ie
       js = atm%bd%js
       je = atm%bd%je
- 
+
       do p = 1, nbfaces
          write(panel, '(i8)') p
 
@@ -174,7 +180,7 @@ subroutine atmosphere_output(atm, step)
       print*
    endif
 
-   if(step<0) then
+   if(step==0) then
       do p = 1, nbfaces
          is = atm%bd%is
          ie = atm%bd%ie
@@ -309,6 +315,8 @@ subroutine atmosphere_input(atm)
     read(fileunit,*)  atm%dp
     read(fileunit,*)  buffer
     read(fileunit,*)  atm%inner_adv
+    read(fileunit,*)  buffer
+    read(fileunit,*)  atm%mass_fixer
     read(fileunit,*)  buffer
     read(fileunit,*)  atm%nplots
     close(fileunit)

@@ -254,14 +254,14 @@ subroutine compute_ra_x_and_ra_y(ra_x, ra_y, xfx, yfx, crx, cry, gridstruct, bd)
 end subroutine compute_ra_x_and_ra_y
 
 
-subroutine compute_xfx_and_yfx(xfx, yfx, crx, cry, gridstruct, bd, adv_scheme)
+subroutine compute_xfx_and_yfx(xfx, yfx, crx, cry, gridstruct, bd, inner_adv)
     type(fv_grid_bounds_type), intent(IN) :: bd
     type(fv_grid_type), intent(IN), target :: gridstruct
     real(R_GRID), intent(INOUT), dimension(bd%is:bd%ie+1, bd%jsd:bd%jed, 1:nbfaces) :: xfx
     real(R_GRID), intent(IN)   , dimension(bd%is:bd%ie+1, bd%jsd:bd%jed, 1:nbfaces) :: crx
     real(R_GRID), intent(INOUT), dimension(bd%isd:bd%ied, bd%js:bd%je+1, 1:nbfaces) :: yfx
     real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied, bd%js:bd%je+1, 1:nbfaces) :: cry
-    integer :: adv_scheme
+    integer :: inner_adv
 
     ! Local:
     integer :: i, j, p
@@ -298,13 +298,13 @@ subroutine compute_xfx_and_yfx(xfx, yfx, crx, cry, gridstruct, bd, adv_scheme)
     !$OMP PARALLEL DO &
     !$OMP DEFAULT(NONE) & 
     !$OMP SHARED(is, ie, js, je, nbfaces) &
-    !$OMP SHARED(isd, ied, jsd, jed, adv_scheme) &
+    !$OMP SHARED(isd, ied, jsd, jed, inner_adv) &
     !$OMP SHARED(xfx, yfx, crx, cry, dx_u, dx_v, dy_u, dy_v, sina_u, sina_v, dx, dy) &
     !$OMP PRIVATE(i, j) &
     !$OMP SCHEDULE(static) 
     do p = 1, nbfaces
       ! compute adv coeffs
-      if(adv_scheme==1) then
+      if(inner_adv==1) then
          xfx(is:ie+1,jsd:jed,p) = crx(is:ie+1,jsd:jed,p)*dx_u(is:ie+1,jsd:jed)*dy_u(is:ie+1,jsd:jed)*sina_u(is:ie+1,jsd:jed)
          yfx(isd:ied,js:je+1,p) = cry(isd:ied,js:je+1,p)*dx_v(isd:ied,js:je+1)*dy_v(isd:ied,js:je+1)*sina_v(isd:ied,js:je+1)
       else
@@ -315,12 +315,13 @@ subroutine compute_xfx_and_yfx(xfx, yfx, crx, cry, gridstruct, bd, adv_scheme)
     !$OMP END PARALLEL DO
 end subroutine compute_xfx_and_yfx
 
-subroutine div_mass_fixer(bd, gridstruct, div, flux_x, flux_y)
+subroutine div_mass_fixer(bd, gridstruct, div, flux_x, flux_y, mass_fixer)
    type(fv_grid_bounds_type), intent(INOUT) :: bd
    type(fv_grid_type), intent(INOUT), target :: gridstruct
    real(R_GRID), intent(INOUT) :: flux_x(bd%is:bd%ie+1, bd%js:bd%je  , 1:nbfaces)
    real(R_GRID), intent(INOUT):: flux_y(bd%is:bd%ie  , bd%js:bd%je+1, 1:nbfaces)
    real(R_GRID), intent(INOUT):: div(bd%is:bd%ie, bd%js:bd%je, 1:nbfaces)
+   integer, intent(IN) :: mass_fixer
    integer :: p
    integer :: is, ie, isd, ied, ng
    integer :: js, je, jsd, jed
@@ -336,13 +337,20 @@ subroutine div_mass_fixer(bd, gridstruct, div, flux_x, flux_y)
    jsd = bd%jsd
    jed = bd%jed
 
-   call  average_flux_at_cube_intefaces(bd, flux_x, flux_y)
+   if(mass_fixer==1) call  average_flux_at_cube_intefaces(bd, flux_x, flux_y)
+
+   !$OMP PARALLEL DO &
+   !$OMP DEFAULT(NONE) & 
+   !$OMP SHARED(is, ie, js, je, nbfaces) &
+   !$OMP SHARED(div, flux_x, flux_y, gridstruct) &
+   !$OMP SCHEDULE(static) 
    do p = 1, nbfaces
       div(is:ie,js:je,p) =  (flux_x(is+1:ie+1,js:je,p)-flux_x(is:ie,js:je,p))+ &
                             (flux_y(is:ie,js+1:je+1,p)-flux_y(is:ie,js:je,p))
 
       div(is:ie,js:je,p) = div(is:ie,js:je,p)*gridstruct%rarea(is:ie,js:je)
    enddo
+   !$OMP END PARALLEL DO
 
 end subroutine div_mass_fixer
 

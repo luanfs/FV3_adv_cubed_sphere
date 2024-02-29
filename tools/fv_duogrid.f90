@@ -538,7 +538,7 @@ subroutine cube_rmp_corner_diag(bd, L, N_buffer, S_buffer, E_buffer, W_buffer, n
   real(R_GRID), pointer, dimension(:, :, :) :: S_buffer_local
   real(R_GRID), pointer, dimension(:, :, :) :: E_buffer_local
   real(R_GRID), pointer, dimension(:, :, :) :: W_buffer_local
-  real(kind=R_GRID) :: interp_buff(1:ng+1), interp_buff2(1:ng)
+  real(kind=R_GRID) :: interp_buff(1:5), interp_buff2(1:5)
   integer :: is, ie, js, je, isd, ied, jsd, jed
   integer :: i, j, ii, n, g, g2, d, h, k, p
 
@@ -551,13 +551,6 @@ subroutine cube_rmp_corner_diag(bd, L, N_buffer, S_buffer, E_buffer, W_buffer, n
   ied = bd%ied
   jsd = bd%jsd
   jed = bd%jed
-
-
-  ! A grid
-  S_buffer_local => L%S_buffer_local
-  N_buffer_local => L%N_buffer_local
-  W_buffer_local => L%W_buffer_local
-  E_buffer_local => L%E_buffer_local
 
   !---------------------------------------------------------------------------------------------------------------------------
   ! SE corner
@@ -734,7 +727,6 @@ subroutine cube_rmp_corner_diag(bd, L, N_buffer, S_buffer, E_buffer, W_buffer, n
       enddo
   
   enddo 
-
 end subroutine cube_rmp_corner_diag
 
 subroutine init_lagrange(L, bd)

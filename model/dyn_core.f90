@@ -74,10 +74,7 @@ subroutine dy_core(qa, uc, uc_old, vc_old, vc, bd, gridstruct, time, time_center
    call compute_ra_x_and_ra_y(ra_x, ra_y, xfx, yfx, crx, cry, gridstruct, bd)
 
    ! compute the fluxes
-   do p = 1, nbfaces
-      call fv_tp_2d(qa(:,:,p), crx(:,:,p), cry(:,:,p), hord, flux_x(:,:,p), flux_y(:,:,p), &
-                   xfx(:,:,p), yfx(:,:,p), gridstruct, bd, ra_x(:,:,p), ra_y(:,:,p), lim_fac, inner_adv)
-   enddo
+   call fv_tp_2d(qa, crx, cry, hord, flux_x, flux_y, xfx, yfx, gridstruct, bd, ra_x, ra_y, lim_fac, inner_adv)
 
    ! fix the div mass
    call div_mass_fixer(bd, gridstruct, div, flux_x, flux_y, mass_fixer)

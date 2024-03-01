@@ -34,6 +34,7 @@ subroutine init_grid(gridstruct, bd)
 
    real(R_GRID), allocatable :: angle_a(:)
    real(R_GRID), allocatable :: angle_b(:)
+   real(R_GRID) :: p1(2), p2(2), p3(2), p4(2)
 
 
    integer :: is, ie, isd, ied
@@ -210,27 +211,32 @@ subroutine init_grid(gridstruct, bd)
    enddo
  
    !--------------------------------------------------------------------------------------------
-   !do i = is, ie
-   !do j = js, je
-         !print*, i,j,agrid(i,j)%lon*180d0/pi , agrid(i,j)%lat*180d0/pi
-         !print*, i,j,dxc(i,j), dyc(i,j)
-   !enddo
-   !!print*
-   !enddo
-   !stop
- 
-
-   !--------------------------------------------------------------------------------------------
    ! compute agrid metric term
    do i = isd, ied
       x = gridline_a(i)
       do j = jsd, jed
          y = gridline_a(j)
          call metricterm(2, x, y, mt(i,j), erad)
-         area(i,j) = mt(i,j)*dx*dx
+         ! area(i,j) = mt(i,j)*dx*dx
+         !rarea(i,j) = 1.d0/area(i,j)
+      enddo
+   enddo
+   !--------------------------------------------------------------------------------------------
+ 
+
+   !--------------------------------------------------------------------------------------------
+   ! compute agrid area
+   do i = isd, ied
+      do j = jsd, jed
+         p1(1:2) = [bgrid(i  ,j  ,1)%lon, bgrid(i  ,j  ,1)%lat]
+         p2(1:2) = [bgrid(i+1,j  ,1)%lon, bgrid(i+1,j  ,1)%lat]
+         p3(1:2) = [bgrid(i+1,j+1,1)%lon, bgrid(i+1,j+1,1)%lat]
+         p4(1:2) = [bgrid(i  ,j+1,1)%lon, bgrid(i  ,j+1,1)%lat]
+         area(i,j) = get_area(p1, p4, p2, p3, erad)
          rarea(i,j) = 1.d0/area(i,j)
       enddo
    enddo
+
    !--------------------------------------------------------------------------------------------
 
    call compute_conversion_matrices(bd, gridstruct)
@@ -686,6 +692,9 @@ end subroutine cart2sph
    return 
   end function arclen
 
+!-----------------------------------------------------------------------------
+! routines from  GFDL cubed sphere code
+!-----------------------------------------------------------------------------
   subroutine unit_vect_latlon_ext(pp, elon, elat)
     real(R_GRID), intent(IN)  :: pp(2)
     real(R_GRID), intent(OUT) :: elon(3), elat(3)
@@ -710,4 +719,134 @@ end subroutine cart2sph
 
   end subroutine unit_vect_latlon_ext
 
+
+subroutine latlon2xyz(p, e, id)
+!
+! Routine to map (lon, lat) to (x,y,z)
+!
+ real(kind=R_GRID), intent(in) :: p(2)
+ real(kind=R_GRID), intent(out):: e(3)
+ integer, optional, intent(in):: id   ! id=0 do nothing; id=1, right_hand
+
+ integer n
+ real (R_GRID):: q(2)
+ real (R_GRID):: e1, e2, e3
+
+    do n=1,2
+       q(n) = p(n)
+    enddo
+
+    e1 = cos(q(2)) * cos(q(1))
+    e2 = cos(q(2)) * sin(q(1))
+    e3 = sin(q(2))
+!-----------------------------------
+! Truncate to the desired precision:
+!-----------------------------------
+    e(1) = e1
+    e(2) = e2
+    e(3) = e3
+
+ end subroutine latlon2xyz
+
+ real(kind=R_GRID) function get_area(p1, p4, p2, p3, radius)
+!-----------------------------------------------
+ real(kind=R_GRID), intent(in), dimension(2):: p1, p2, p3, p4
+ real(kind=R_GRID), intent(in), optional:: radius
+!-----------------------------------------------
+ real(kind=R_GRID) e1(3), e2(3), e3(3)
+ real(kind=R_GRID) ang1, ang2, ang3, ang4
+
+! S-W: 1
+       call latlon2xyz(p1, e1)   ! p1
+       call latlon2xyz(p2, e2)   ! p2
+       call latlon2xyz(p4, e3)   ! p4
+       ang1 = spherical_angle(e1, e2, e3)
+!----
+! S-E: 2
+!----
+       call latlon2xyz(p2, e1)
+       call latlon2xyz(p3, e2)
+       call latlon2xyz(p1, e3)
+       ang2 = spherical_angle(e1, e2, e3)
+!----
+! N-E: 3
+!----
+       call latlon2xyz(p3, e1)
+       call latlon2xyz(p4, e2)
+       call latlon2xyz(p2, e3)
+       ang3 = spherical_angle(e1, e2, e3)
+!----
+! N-W: 4
+!----
+       call latlon2xyz(p4, e1)
+       call latlon2xyz(p3, e2)
+       call latlon2xyz(p1, e3)
+       ang4 = spherical_angle(e1, e2, e3)
+
+       if ( present(radius) ) then
+            get_area = (ang1 + ang2 + ang3 + ang4 - 2.*pi) * radius**2
+       else
+            get_area = ang1 + ang2 + ang3 + ang4 - 2.*pi
+       endif
+
+ end function get_area
+
+
+ real(kind=R_GRID) function spherical_angle(p1, p2, p3)
+
+!           p3
+!         /
+!        /
+!       p1 ---> angle
+!         \
+!          \
+!           p2
+
+ real(kind=R_GRID) p1(3), p2(3), p3(3)
+
+ real (R_GRID):: e1(3), e2(3), e3(3)
+ real (R_GRID):: px, py, pz
+ real (R_GRID):: qx, qy, qz
+ real (R_GRID):: angle, ddd
+ integer n
+
+  do n=1,3
+     e1(n) = p1(n)
+     e2(n) = p2(n)
+     e3(n) = p3(n)
+  enddo
+
+!-------------------------------------------------------------------
+! Page 41, Silverman's book on Vector Algebra; spherical trigonmetry
+!-------------------------------------------------------------------
+! Vector P:
+   px = e1(2)*e2(3) - e1(3)*e2(2)
+   py = e1(3)*e2(1) - e1(1)*e2(3)
+   pz = e1(1)*e2(2) - e1(2)*e2(1)
+! Vector Q:
+   qx = e1(2)*e3(3) - e1(3)*e3(2)
+   qy = e1(3)*e3(1) - e1(1)*e3(3)
+   qz = e1(1)*e3(2) - e1(2)*e3(1)
+
+   ddd = (px*px+py*py+pz*pz)*(qx*qx+qy*qy+qz*qz)
+
+   if ( ddd <= 0.0d0 ) then
+        angle = 0.d0
+   else
+        ddd = (px*qx+py*qy+pz*qz) / sqrt(ddd)
+        if ( abs(ddd)>1.d0) then
+             angle = 2.d0*atan(1.0)    ! 0.5*pi
+           !FIX (lmh) to correctly handle co-linear points (angle near pi or 0)
+           if (ddd < 0.d0) then
+              angle = 4.d0*atan(1.0d0) !should be pi
+           else
+              angle = 0.d0
+           end if
+        else
+             angle = acos( ddd )
+        endif
+   endif
+
+   spherical_angle = angle
+ end function spherical_angle
 end module fv_grid_tools

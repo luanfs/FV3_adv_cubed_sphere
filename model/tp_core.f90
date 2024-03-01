@@ -4,7 +4,7 @@ module tp_core
 !
 ! reference https://github.com/NOAA-GFDL/GFDL_atmos_cubed_sphere/blob/main/model/tp_core.F90
 !========================================================================
-use fv_arrays, only: fv_grid_type, fv_grid_bounds_type, R_GRID
+use fv_arrays, only: fv_grid_type, fv_grid_bounds_type, R_GRID, nbfaces
  implicit none
 
  private
@@ -56,32 +56,32 @@ contains
    integer, intent(in)::hord
    integer, intent(in)::inner_adv
 
-   real(R_GRID), intent(in)::  crx(bd%is:bd%ie+1,bd%jsd:bd%jed)  !
-   real(R_GRID), intent(in)::  cry(bd%isd:bd%ied,bd%js:bd%je+1 )  !
+   real(R_GRID), intent(in)::  crx(bd%is:bd%ie+1,bd%jsd:bd%jed, 1:nbfaces)  !
+   real(R_GRID), intent(in)::  cry(bd%isd:bd%ied,bd%js:bd%je+1, 1:nbfaces )  !
 
-   real(R_GRID), intent(in)::  xfx(bd%is:bd%ie+1,bd%jsd:bd%jed)  !
-   real(R_GRID), intent(in)::  yfx(bd%isd:bd%ied,bd%js:bd%je+1 )  !
+   real(R_GRID), intent(in)::  xfx(bd%is:bd%ie+1,bd%jsd:bd%jed, 1:nbfaces)  !
+   real(R_GRID), intent(in)::  yfx(bd%isd:bd%ied,bd%js:bd%je+1, 1:nbfaces)  !
 
-   real(R_GRID), intent(in):: ra_x(bd%is:bd%ie,bd%jsd:bd%jed)
-   real(R_GRID), intent(in):: ra_y(bd%isd:bd%ied,bd%js:bd%je)
-   real(R_GRID), intent(inout):: q(bd%isd:bd%ied,bd%jsd:bd%jed)  ! transported scalar
-   real(R_GRID), intent(out)::fx(bd%is:bd%ie+1 ,bd%js:bd%je)    ! Flux in x ( E )
-   real(R_GRID), intent(out)::fy(bd%is:bd%ie,   bd%js:bd%je+1 )    ! Flux in y ( N )
+   real(R_GRID), intent(in):: ra_x(bd%is:bd%ie,bd%jsd:bd%jed, 1:nbfaces)
+   real(R_GRID), intent(in):: ra_y(bd%isd:bd%ied,bd%js:bd%je, 1:nbfaces)
+   real(R_GRID), intent(inout):: q(bd%isd:bd%ied,bd%jsd:bd%jed, 1:nbfaces)  ! transported scalar
+   real(R_GRID), intent(out)::fx(bd%is:bd%ie+1 ,bd%js:bd%je, 1:nbfaces)    ! Flux in x ( E )
+   real(R_GRID), intent(out)::fy(bd%is:bd%ie,   bd%js:bd%je+1, 1:nbfaces)    ! Flux in y ( N )
 
    type(fv_grid_type), intent(IN), target :: gridstruct
 
    real(R_GRID), intent(in):: lim_fac
 ! optional Arguments:
 ! Local:
-   real(R_GRID):: q_i(bd%isd:bd%ied,bd%js:bd%je)
-   real(R_GRID):: q_j(bd%is:bd%ie,bd%jsd:bd%jed)
-   real(R_GRID):: fxx(bd%is:bd%ie+1,bd%jsd:bd%jed)
-   real(R_GRID):: fx2(bd%is:bd%ie+1,bd%jsd:bd%jed)
-   real(R_GRID):: fyy(bd%isd:bd%ied,bd%js:bd%je+1)
-   real(R_GRID):: fy2(bd%isd:bd%ied,bd%js:bd%je+1)
-   real(R_GRID):: qmt(bd%isd:bd%ied,bd%jsd:bd%jed)  ! transported scalar * metricterm
+   real(R_GRID):: q_i(bd%isd:bd%ied,bd%js:bd%je, 1:nbfaces)
+   real(R_GRID):: q_j(bd%is:bd%ie,bd%jsd:bd%jed, 1:nbfaces)
+   real(R_GRID):: fxx(bd%is:bd%ie+1,bd%jsd:bd%jed, 1:nbfaces)
+   real(R_GRID):: fx2(bd%is:bd%ie+1,bd%jsd:bd%jed, 1:nbfaces)
+   real(R_GRID):: fyy(bd%isd:bd%ied,bd%js:bd%je+1, 1:nbfaces)
+   real(R_GRID):: fy2(bd%isd:bd%ied,bd%js:bd%je+1, 1:nbfaces)
+   real(R_GRID):: qmt(bd%isd:bd%ied,bd%jsd:bd%jed, 1:nbfaces)  ! transported scalar * metricterm
    real(R_GRID), pointer, dimension(:,:) ::  mt_a
-   integer i, j
+   integer i, j, p
    integer:: is, ie, js, je, isd, ied, jsd, jed
 
    is  = bd%is
@@ -98,95 +98,194 @@ contains
    !==================================================================================================================
 
    if(inner_adv==1) then
-      qmt(isd:ied,jsd:jed) = q(isd:ied,jsd:jed)
+      do p = 1, nbfaces
+         qmt(isd:ied,jsd:jed,p) = q(isd:ied,jsd:jed,p)
+      enddo
    else if(inner_adv==2) then
-      qmt(isd:ied,jsd:jed) = q(isd:ied,jsd:jed)*mt_a(isd:ied,jsd:jed)
+      do p = 1, nbfaces
+         qmt(isd:ied,jsd:jed,p) = q(isd:ied,jsd:jed,p)*mt_a(isd:ied,jsd:jed)
+      enddo
    endif
 
-   call yppm(fy2, qmt, cry, hord, isd,ied,isd,ied, js,je,jsd,jed, lim_fac)
+   do p = 1, nbfaces
+      call yppm(fy2(:,:,p), qmt(:,:,p), cry(:,:,p), hord, isd,ied,isd,ied, js,je,jsd,jed, lim_fac)
+   enddo
 
-
-   do j=js,je+1
-      do i=isd,ied
-         fyy(i,j) = yfx(i,j) * fy2(i,j)
+   !$OMP PARALLEL DO &
+   !$OMP DEFAULT(NONE) & 
+   !$OMP SHARED(fyy, yfx, fy2) &
+   !$OMP SHARED(is, ie, js, je, nbfaces) &
+   !$OMP SHARED(isd, ied, jsd, jed) &
+   !$OMP PRIVATE(i, j) &
+   !$OMP SCHEDULE(static)
+   do p = 1, nbfaces
+      do j=js,je+1
+         do i=isd,ied
+            fyy(i,j,p) = yfx(i,j,p) * fy2(i,j,p)
+         enddo
       enddo
    enddo
+   !$OMP END PARALLEL DO
 
    ! inner advection
    if(inner_adv==1) then
-      do j=js,je
-         do i=isd,ied
-            q_i(i,j) = (q(i,j)*gridstruct%area(i,j) + fyy(i,j)-fyy(i,j+1))/ra_y(i,j)
+      !$OMP PARALLEL DO &
+      !$OMP DEFAULT(NONE) & 
+      !$OMP SHARED(q_i, q, gridstruct, fyy, ra_y) &
+      !$OMP SHARED(is, ie, js, je, nbfaces) &
+      !$OMP SHARED(isd, ied, jsd, jed) &
+      !$OMP PRIVATE(i, j) &
+      !$OMP SCHEDULE(static)
+      do p = 1, nbfaces
+         do j=js,je
+            do i=isd,ied
+               q_i(i,j,p) = (q(i,j,p)*gridstruct%area(i,j) + fyy(i,j,p)-fyy(i,j+1,p))/ra_y(i,j,p)
+            enddo
          enddo
       enddo
+      !$OMP END PARALLEL DO
    else if(inner_adv==2) then
-      do j=js,je
-         do i=isd,ied
-            q_i(i,j) = q(i,j) -(fyy(i,j+1)-fyy(i,j))*gridstruct%rarea(i,j)
+      !$OMP PARALLEL DO &
+      !$OMP DEFAULT(NONE) & 
+      !$OMP SHARED(q_i, q, gridstruct, fyy) &
+      !$OMP SHARED(is, ie, js, je, nbfaces) &
+      !$OMP SHARED(isd, ied, jsd, jed) &
+      !$OMP PRIVATE(i, j) &
+      !$OMP SCHEDULE(static)
+      do p = 1, nbfaces
+         do j=js,je
+            do i=isd,ied
+               q_i(i,j,p) = q(i,j,p) -(fyy(i,j+1,p)-fyy(i,j,p))*gridstruct%rarea(i,j)
+            enddo
          enddo
       enddo
+      !$OMP END PARALLEL DO
    endif
 
    if(inner_adv==2) then
-      do j=js,je
-         do i=isd,ied
-            q_i(i,j) = q_i(i,j)*mt_a(i,j)
+      !$OMP PARALLEL DO &
+      !$OMP DEFAULT(NONE) & 
+      !$OMP SHARED(q_i, mt_a) &
+      !$OMP SHARED(is, ie, js, je, nbfaces) &
+      !$OMP SHARED(isd, ied, jsd, jed) &
+      !$OMP PRIVATE(i, j) &
+      !$OMP SCHEDULE(static)
+      do p = 1, nbfaces
+         do j=js,je
+            do i=isd,ied
+               q_i(i,j,p) = q_i(i,j,p)*mt_a(i,j)
+            enddo
          enddo
-      enddo
+      enddo 
+      !$OMP END PARALLEL DO
    endif
 
 
-   call xppm(fx, q_i, crx, hord, is,ie,isd,ied, js,je,jsd,jed, lim_fac)
+   do p = 1, nbfaces
+      call xppm(fx(:,:,p), q_i(:,:,p), crx(:,:,p), hord, is,ie,isd,ied, js,je,jsd,jed, lim_fac)
+   enddo
 
 
    !==================================================================================================================
-   call xppm(fx2, qmt, crx, hord, is,ie,isd,ied, jsd,jed,jsd,jed, lim_fac)
+   do p = 1, nbfaces
+      call xppm(fx2(:,:,p), qmt(:,:,p), crx(:,:,p), hord, is,ie,isd,ied, jsd,jed,jsd,jed, lim_fac)
+   enddo
 
-   do j=jsd,jed
-      do i=is,ie+1
-         fxx(i,j) =  xfx(i,j) * fx2(i,j)
-      enddo
+   !$OMP PARALLEL DO &
+   !$OMP DEFAULT(NONE) & 
+   !$OMP SHARED(fxx, xfx, fx2) &
+   !$OMP SHARED(is, ie, js, je, nbfaces) &
+   !$OMP SHARED(isd, ied, jsd, jed) &
+   !$OMP PRIVATE(i, j) &
+   !$OMP SCHEDULE(static)
+   do p = 1, nbfaces
+      do j=jsd,jed
+         do i=is,ie+1
+            fxx(i,j,p) =  xfx(i,j,p) * fx2(i,j,p)
+         enddo
+      enddo 
    enddo 
+   !$OMP END PARALLEL DO
 
    ! inner adv
    if(inner_adv==1) then
-      do j=jsd,jed
-         do i=is,ie
-            q_j(i,j) = (q(i,j)*gridstruct%area(i,j) + fxx(i,j)-fxx(i+1,j))/ra_x(i,j)
+      !$OMP PARALLEL DO &
+      !$OMP DEFAULT(NONE) & 
+      !$OMP SHARED(q_j, q, gridstruct, fxx, ra_x) &
+      !$OMP SHARED(is, ie, js, je, nbfaces) &
+      !$OMP SHARED(isd, ied, jsd, jed) &
+      !$OMP PRIVATE(i, j) &
+      !$OMP SCHEDULE(static)
+      do p = 1, nbfaces
+         do j=jsd,jed
+            do i=is,ie
+               q_j(i,j,p) = (q(i,j,p)*gridstruct%area(i,j) + fxx(i,j,p)-fxx(i+1,j,p))/ra_x(i,j,p)
+            enddo
          enddo
       enddo
+      !$OMP END PARALLEL DO
    else if(inner_adv==2) then
-      do j=jsd,jed
-         do i=is,ie
-            q_j(i,j) = q(i,j)-(fxx(i+1,j)-fxx(i,j))*gridstruct%rarea(i,j)
+      !$OMP PARALLEL DO &
+      !$OMP DEFAULT(NONE) & 
+      !$OMP SHARED(q_j, q, gridstruct, fxx) &
+      !$OMP SHARED(is, ie, js, je, nbfaces) &
+      !$OMP SHARED(isd, ied, jsd, jed) &
+      !$OMP PRIVATE(i, j) &
+      !$OMP SCHEDULE(static)
+      do p = 1, nbfaces
+         do j=jsd,jed
+            do i=is,ie
+               q_j(i,j,p) = q(i,j,p)-(fxx(i+1,j,p)-fxx(i,j,p))*gridstruct%rarea(i,j)
+            enddo
          enddo
       enddo
+      !$OMP END PARALLEL DO
    endif 
  
    if(inner_adv==2) then
-      do j=jsd,jed
-         do i=is,ie
-            q_j(i,j) = q_j(i,j)*mt_a(i,j)
+      !$OMP PARALLEL DO &
+      !$OMP DEFAULT(NONE) & 
+      !$OMP SHARED(q_j, mt_a) &
+      !$OMP SHARED(is, ie, js, je, nbfaces) &
+      !$OMP SHARED(isd, ied, jsd, jed) &
+      !$OMP PRIVATE(i, j) &
+      !$OMP SCHEDULE(static)
+      do p = 1, nbfaces
+         do j=jsd,jed
+            do i=is,ie
+               q_j(i,j,p) = q_j(i,j,p)*mt_a(i,j)
+            enddo
          enddo
       enddo
+      !$OMP END PARALLEL DO
    endif
 
-   call yppm(fy, q_j, cry, hord, is,ie,isd,ied, js,je,jsd,jed, lim_fac)
+   do p = 1, nbfaces
+      call yppm(fy(:,:,p), q_j(:,:,p), cry(:,:,p), hord, is,ie,isd,ied, js,je,jsd,jed, lim_fac)
+   enddo
 
 
    !==================================================================================================================
-   do j=js,je
-      do i=is,ie+1
-         fx(i,j) = 0.5*(fx(i,j)*xfx(i,j) + fx2(i,j)*xfx(i,j))
-         !fx(i,j) = fx2(i,j)*xfx(i,j)
+   !$OMP PARALLEL DO &
+   !$OMP DEFAULT(NONE) & 
+   !$OMP SHARED(fx, fy, fx2, fy2, xfx, yfx) &
+   !$OMP SHARED(is, ie, js, je, nbfaces) &
+   !$OMP SHARED(isd, ied, jsd, jed) &
+   !$OMP PRIVATE(i, j) &
+   !$OMP SCHEDULE(static)
+   do p = 1, nbfaces
+      do j=js,je
+         do i=is,ie+1
+            fx(i,j,p) = 0.5*(fx(i,j,p)*xfx(i,j,p) + fx2(i,j,p)*xfx(i,j,p))
+         enddo
+      enddo
+      do j=js,je+1
+         do i=is,ie
+            fy(i,j,p) = 0.5*(fy(i,j,p)*yfx(i,j,p) + fy2(i,j,p)*yfx(i,j,p))
+         enddo
       enddo
    enddo
-   do j=js,je+1
-      do i=is,ie
-         fy(i,j) = 0.5*(fy(i,j)*yfx(i,j) + fy2(i,j)*yfx(i,j))
-         !fy(i,j) = 0.d0
-      enddo
-   enddo
+   !$OMP END PARALLEL DO
  end subroutine fv_tp_2d
 
  subroutine xppm(flux, q, c, iord, is,ie,isd,ied, jfirst,jlast,jsd,jed, lim_fac)

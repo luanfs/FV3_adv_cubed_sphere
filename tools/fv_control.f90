@@ -53,7 +53,7 @@ subroutine init_atmos(atm)
    integer :: is, ie, isd, ied
    integer :: js, je, jsd, jed
    integer :: i
-   character (len=60):: n, tc, hord, dp, iadv, mf
+   character (len=60):: n, tc, hord, dp, iadv, mf, gtype
    is  = atm%bd%is
    js  = atm%bd%js
    isd = atm%bd%isd
@@ -65,13 +65,14 @@ subroutine init_atmos(atm)
    atm%npx = atm%bd%npx
    atm%npy = atm%bd%npy
 
-   write(n   ,'(i8)') atm%npx
-   write(tc  ,'(i8)') atm%test_case
-   write(hord,'(i8)') atm%hord
-   write(dp  ,'(i8)') atm%dp
-   write(iadv,'(i8)') atm%inner_adv
-   write(mf  ,'(i8)') atm%mass_fixer
-   atm%simulation_name = "tc"//trim(adjustl(tc))//"_N"//trim(adjustl(n))//"_hord"//&
+   write(gtype,'(i8)') atm%gridstruct%grid_type
+   write(n    ,'(i8)') atm%npx
+   write(tc   ,'(i8)') atm%test_case
+   write(hord ,'(i8)') atm%hord
+   write(dp   ,'(i8)') atm%dp
+   write(iadv ,'(i8)') atm%inner_adv
+   write(mf   ,'(i8)') atm%mass_fixer
+   atm%simulation_name = "g"//trim(adjustl(gtype))//"_tc"//trim(adjustl(tc))//"_N"//trim(adjustl(n))//"_hord"//&
    trim(adjustl(hord))//"_iadv"//trim(adjustl(iadv))//"_dp"//trim(adjustl(dp))//"_mf"//&
    trim(adjustl(mf))//"_"
 
@@ -99,7 +100,7 @@ subroutine init_model(atm)
 
    call init_bounds(atm%bd, atm%npx, atm%npy)
    call init_grid  (atm%gridstruct, atm%bd)
-   call init_lagrange(atm%L, atm%bd)
+   call init_lagrange(atm%L, atm%bd, atm%gridstruct%grid_type)
    call init_atmos (atm)
 
 end subroutine init_model

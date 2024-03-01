@@ -32,14 +32,14 @@ subroutine init_grid(gridstruct, bd)
    real(R_GRID), allocatable :: gridline_a(:)
    real(R_GRID), allocatable :: gridline_b(:)
 
-   real(R_GRID), allocatable :: angle_a(:)
-   real(R_GRID), allocatable :: angle_b(:)
+   real(R_GRID), allocatable :: tan_angle_a(:)
+   real(R_GRID), allocatable :: tan_angle_b(:)
    real(R_GRID) :: p1(2), p2(2), p3(2), p4(2)
 
 
    integer :: is, ie, isd, ied
    integer :: js, je, jsd, jed
-   integer :: i, j, p
+   integer :: i, j, p, ng, ii, g
 
    is  = bd%is
    js  = bd%js
@@ -49,6 +49,7 @@ subroutine init_grid(gridstruct, bd)
    je  = bd%je
    ied = bd%ied
    jed = bd%jed
+   ng  = bd%ng
 
    gridstruct%npx = bd%npx
    gridstruct%npy = bd%npy
@@ -56,8 +57,8 @@ subroutine init_grid(gridstruct, bd)
    allocate(gridline_b(isd:ied+1))
    allocate(gridline_a(isd:ied))
 
-   allocate(angle_b(isd:ied+1))
-   allocate(angle_a(isd:ied))
+   allocate(tan_angle_b(isd:ied+1))
+   allocate(tan_angle_a(isd:ied))
 
    allocate(gridstruct%agrid(isd:ied  , jsd:jed  , 1:nbfaces))
    allocate(gridstruct%bgrid(isd:ied+1, jsd:jed+1, 1:nbfaces))
@@ -97,30 +98,68 @@ subroutine init_grid(gridstruct, bd)
    dy_u   => gridstruct%dy_u
    dy_v   => gridstruct%dy_v
 
-   aref = pio4
-   Rref = 1.d0
-   dx = 2.d0*Rref*aref/bd%npx
+   if(gridstruct%grid_type==0) then !equiangular grid
+      aref = dasin(1.d0/dsqrt(3.d0))
+      Rref = dsqrt(2.d0)
+   else if (gridstruct%grid_type==2) then !equiedge grid
+      aref = pio4
+      Rref = 1.d0
+   else
+      print*, 'ERROR in init_grid: invalid grid_type'
+      stop
+   endif
+
+   dx = 2.d0*aref/bd%npx
    gridstruct%dx = dx
    gridstruct%dy = dx
 
    ! compute b grid local coordinates
    do i = isd, ied+1
       gridline_b(i) = -aref + (i-1.d0)*dx
-      angle_b(i) = dtan(gridline_b(i))
+      tan_angle_b(i) = dtan(gridline_b(i))*Rref
    enddo
 
    do i = isd, ied
       gridline_a(i) = -aref + (i-0.5d0)*dx 
-      angle_a(i) = dtan(gridline_a(i))
+      tan_angle_a(i) = dtan(gridline_a(i))*Rref
    enddo
+
+   if(gridstruct%grid_type==0) then
+      ! A grid
+      !modify ghost cells at left
+      do i = isd, is - 1
+          ii  = 2*is-i-1
+          gridline_a(i) = -pio2 - datan(tan_angle_a(ii))
+          tan_angle_a(i) = dtan(gridline_a(i))
+      end do
+      ! right
+      do g = 1, ng
+         gridline_a(ie+g) = -gridline_a(is-g) 
+         tan_angle_a(ie+g)  = -tan_angle_a(is-g) 
+      end do
+
+      ! B grid
+      !modify ghost cells at left
+      do i = isd, is - 1
+         ii  = 2*is-i
+         gridline_b(i) = -pio2 - datan(tan_angle_b(ii))
+         tan_angle_b(i) = dtan(gridline_b(i))
+      end do
+
+      do g = 1, ng
+         gridline_b(ie+1+g) = -gridline_b(is-g) 
+         tan_angle_b(ie+1+g)  = -tan_angle_b(is-g) 
+      end do
+   endif
+
 
    !--------------------------------------------------------------------------------------------
    ! compute bgrid
    do p = 1, nbfaces
       do i = isd, ied+1
-         x = angle_b(i)
+         x = tan_angle_b(i)
          do j = jsd, jed+1
-            y = angle_b(j)
+            y = tan_angle_b(j)
             call equidistant_gnomonic_map(bgrid(i,j,p)%p, x, y, p)
             call cart2sph ( bgrid(i,j,p)%p(1), bgrid(i,j,p)%p(2), bgrid(i,j,p)%p(3), bgrid(i,j,p)%lon, bgrid(i,j,p)%lat)
          enddo
@@ -143,17 +182,17 @@ subroutine init_grid(gridstruct, bd)
    enddo
 
    !--------------------------------------------------------------------------------------------
-   ! compute agrid
-   do p = 1, nbfaces
-      do i = isd, ied
-         x = angle_a(i)
-         do j = jsd, jed
-            y = angle_a(j)
+   ! compute agrid using cube map
+   !do p = 1, nbfaces
+   !   do i = isd, ied
+   !      x = tan_angle_a(i)
+   !      do j = jsd, jed
+   !         y = tan_angle_a(j)
             !call equidistant_gnomonic_map(agrid(i,j,p)%p, x, y, p)
             !call cart2sph ( agrid(i,j,p)%p(1), agrid(i,j,p)%p(2), agrid(i,j,p)%p(3), agrid(i,j,p)%lon, agrid(i,j,p)%lat)
-         enddo
-      enddo
-   enddo
+   !      enddo
+   !   enddo
+   !enddo
 
 
    !--------------------------------------------------------------------------------------------
@@ -216,7 +255,7 @@ subroutine init_grid(gridstruct, bd)
       x = gridline_a(i)
       do j = jsd, jed
          y = gridline_a(j)
-         call metricterm(2, x, y, mt(i,j), erad)
+         call metricterm(gridstruct%grid_type, x, y, mt(i,j), erad)
          ! area(i,j) = mt(i,j)*dx*dx
          !rarea(i,j) = 1.d0/area(i,j)
       enddo
@@ -243,8 +282,8 @@ subroutine init_grid(gridstruct, bd)
 
    deallocate(gridline_a)
    deallocate(gridline_b)
-   deallocate(angle_a)
-   deallocate(angle_b)
+   deallocate(tan_angle_a)
+   deallocate(tan_angle_b)
 end subroutine init_grid
 
  subroutine equidistant_gnomonic_map(p, x, y, panel)

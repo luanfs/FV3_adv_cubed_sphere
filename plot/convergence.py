@@ -20,6 +20,9 @@ tc = 2
 # advection scheme
 hords = (0,8)
 
+#grid types (0-equiedge, 2-equiangular)
+gtypes = (2,2)
+
 # dp scheme
 dps = (1,2)
 
@@ -49,10 +52,10 @@ for n in range(0, ngrids):
          iadv  = iadvs[k]
          dp = dps[k]
          mf = mfs[k]
-         # update parameters
+         gtype = gtypes[k]
 
          # error filename
-         filename = "tc"+str(tc)+"_N"+str(N)+"_hord"+str(hord)+"_iadv"+str(iadv)+"_dp"+str(dp)+"_mf"+str(mf)+"_errors.txt"
+         filename = "g"+str(gtype)+"_tc"+str(tc)+"_N"+str(N)+"_hord"+str(hord)+"_iadv"+str(iadv)+"_dp"+str(dp)+"_mf"+str(mf)+"_errors.txt"
    
          # load the errors
          errors = np.loadtxt(datadir+filename)

@@ -53,7 +53,7 @@ subroutine init_scalar(qa, bd, gridstruct, test_case)
  
    agrid => gridstruct%agrid
 
-   if (test_case==1) then
+   if (test_case<=1) then
       do p =1, nbfaces
          do i = is, ie
             do j = js, je
@@ -213,7 +213,7 @@ subroutine compute_wind(u, v, lon, lat, t, test_case)
 
    Tf = 12.d0*day2sec
    select case (test_case)
-      case(1,2)
+      case(0,1,2)
          alpha =  45.d0*deg2rad ! Rotation angle
          u0    =  2.d0*pi*erad/Tf ! Wind speed
          u     =  u0*(dcos(lat)*dcos(alpha) + dsin(lat)*dcos(lon)*dsin(alpha))

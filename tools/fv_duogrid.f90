@@ -729,12 +729,12 @@ subroutine cube_rmp_corner_diag(bd, L, N_buffer, S_buffer, E_buffer, W_buffer, n
   enddo 
 end subroutine cube_rmp_corner_diag
 
-subroutine init_lagrange(L, bd)
+subroutine init_lagrange(L, bd, grid_type)
     type(lagrange_poly), intent(inout):: L
     type(fv_grid_bounds_type), intent(INOUT) :: bd
+    integer, intent(in) :: grid_type
     integer :: is, ie, js, je, ng2
     integer :: isd2, ied2, jsd2, jed2
-    integer :: grid_type = 2
     is = bd%is
     ie = bd%ie
     js = bd%js

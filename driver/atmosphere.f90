@@ -92,6 +92,7 @@ subroutine atmosphere_init(atm)
  
 
    print*,"test case  :", atm%test_case
+   print*,"grid_type  :", atm%gridstruct%grid_type
    print*,"npx        :", atm%npx
    print*,"dt         :", atm%dt
    print*,"hord       :", atm%hord
@@ -105,6 +106,7 @@ subroutine atmosphere_init(atm)
 
    !call ext_scalar_agrid(atm%qa, atm%bd, atm%L)
    !print*, maxval(abs(atm%qa - atm%qa0))/maxval(abs(atm%qa0))
+   !stop
 
 
    ! compute initial diagnostics
@@ -305,6 +307,8 @@ subroutine atmosphere_input(atm)
     read(fileunit,*)  buffer
     read(fileunit,*)  buffer
     read(fileunit,*)  atm%test_case
+    read(fileunit,*)  buffer
+    read(fileunit,*)  atm%gridstruct%grid_type
     read(fileunit,*)  buffer
     read(fileunit,*)  atm%npx
     read(fileunit,*)  buffer

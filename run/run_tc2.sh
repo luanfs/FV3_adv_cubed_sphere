@@ -7,20 +7,23 @@ tc="2"
 # 1d advection scheme
 hords=(0 8)
 
+# grid types (0-equiedge; 1-equiangular)
+gtypes=(2 2 2 2)
+
 # departure point scheme
-dps=(1 2)
+dps=(1 2 1 2)
 
 # inner adv
-iadvs=(1 2)
+iadvs=(1 2 1 2)
 
 # mass fixers
-mfs=(1 1)
+mfs=(0 0 1 1)
 
 # Initial value of N
 N=48
 
 #number of grids to be tested (we double the values N for each new grid and divide dt by 2)
-Ng=5
+Ng=3
 
 cd ..
 clear
@@ -59,11 +62,14 @@ for ((j=1; j<=$Ng; j++)); do
             dp=${dps[i]}
             iadv=${iadvs[i]}
             mf=${mfs[i]}
+            gtype=${gtypes[i]}
 
             # Create input.par file
             echo "#Advection test case parameters" > input.par
             echo "#Test case" >> input.par
             echo "$tc" >> input.par
+            echo "grid type (0-equiedge; 2-equiangular)" >> input.par
+            echo "$gtype" >> input.par
             echo "# N (number of cells)" >> input.par
             echo "$N" >> input.par
             echo "#Time step" >> input.par

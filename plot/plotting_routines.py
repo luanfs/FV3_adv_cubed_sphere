@@ -59,7 +59,7 @@ def plot_scalarfield(q, map_projection, title, filename, colormap, qmin, qmax,\
 
     # Color of each cubed panel
     colors = ('black','black','black','black','black','black')
-
+    colors = ('gray','gray','gray','gray','gray','gray')
     # plot for each tile
     for p in range(0,nbfaces):
         # Get grid
@@ -71,22 +71,24 @@ def plot_scalarfield(q, map_projection, title, filename, colormap, qmin, qmax,\
         B_lon, B_lat = lon[N, 0], lat[N, 0]
         C_lon, C_lat = lon[N, N], lat[N, N]
         D_lon, D_lat = lon[0, N], lat[0, N]
-        lw = 0.2
+        lw = 0.1
         plt.rcParams["axes.axisbelow"] = True
 
-        ax.plot([A_lon, B_lon], [A_lat, B_lat], '-', linewidth=lw, color=colors[p], transform=ccrs.Geodetic(), zorder=11)
-        ax.plot([B_lon, C_lon], [B_lat, C_lat], '-', linewidth=lw, color=colors[p], transform=ccrs.Geodetic(), zorder=11)
-        ax.plot([C_lon, D_lon], [C_lat, D_lat], '-', linewidth=lw, color=colors[p], transform=ccrs.Geodetic(), zorder=11)
-        ax.plot([D_lon, A_lon], [D_lat, A_lat], '-', linewidth=lw, color=colors[p], transform=ccrs.Geodetic(), zorder=11)
+        ax.plot([A_lon, B_lon], [A_lat, B_lat], '-.', linewidth=lw, color=colors[p], transform=ccrs.Geodetic(), zorder=11)
+        ax.plot([B_lon, C_lon], [B_lat, C_lat], '-.', linewidth=lw, color=colors[p], transform=ccrs.Geodetic(), zorder=11)
+        ax.plot([C_lon, D_lon], [C_lat, D_lat], '-.', linewidth=lw, color=colors[p], transform=ccrs.Geodetic(), zorder=11)
+        ax.plot([D_lon, A_lon], [D_lat, A_lat], '-.', linewidth=lw, color=colors[p], transform=ccrs.Geodetic(), zorder=11)
 
         # Plot scalar field
         im = ax.pcolormesh(lon, lat, q[:,:,p], alpha=1, transform=ccrs.PlateCarree(), \
         zorder=10, vmin = qmin, vmax=qmax,  cmap=colormap)
 
     plt.title(title)
+
     # Plot colorbar
     cax,kw = colorbar.make_axes(ax,orientation='vertical' , fraction=0.046, pad=0.04, shrink=0.8, format='%.1e')
     cb=plt.colorbar(im, cax=cax, extend='both',**kw)
     cb.ax.tick_params(labelsize=8)
     plt.savefig(filename+'.'+figformat, format=figformat)
+    print('plotted ', filename)
     plt.close()

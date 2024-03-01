@@ -138,6 +138,7 @@ type fv_grid_type
    real(R_GRID) :: dx, dy
    integer :: npx       ! number of interior cells (x direction)
    integer :: npy       ! number of interior cells (y direction)
+   integer :: grid_type  ! 0-equiedge grid; 2-equiangular
 end type fv_grid_type
 
 !-------------------------------------------------

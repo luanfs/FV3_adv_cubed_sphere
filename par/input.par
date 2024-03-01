@@ -1,10 +1,12 @@
 #Advection test case parameters
 #Test case
-4
+2
+grid type (0-equiedge; 2-equiangular)
+2
 # N (number of cells)
 48
 #Time step
-7200
+3600
 #hord scheme
 8
 #departure point (1 or 2)

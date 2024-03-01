@@ -11,12 +11,13 @@ nbfaces = 6
 figformat='png'
 
 # some constants
-N    = 48 # number of cells
-tc   = 2  # test case
+N    = 96 # number of cells
+tc   = 1  # test case
 hord = 8 # 1d adv scheme
 dp   = 2  #2d adv scheme
 iadv = 2
-mf = 1
+gtype = 2
+mf = 0
 nplots = 12
 
 
@@ -35,8 +36,7 @@ figformat='png'
 colormap='jet'
 
 
-
-basename = "tc"+str(tc)+"_N"+str(N)+"_hord"+str(hord)+"_iadv"+str(iadv)+"_dp"+str(dp)+"_mf"+str(mf)+"_t"
+basename = "g"+str(gtype)+"_tc"+str(tc)+"_N"+str(N)+"_hord"+str(hord)+"_iadv"+str(iadv)+"_dp"+str(dp)+"_mf"+str(mf)+"_t"
 # Get scalar field
 q = np.zeros((N,N,6,nplots+1))
 for t in range(0, nplots+1):
@@ -74,7 +74,7 @@ for t in range(0, nplots+1):
    sp +'.hord'+str(hord)+'.dp'+str(dp)
 
    # plot the graph
-   plot_scalarfield(q[:,:,:,t], map_projection, title, output_name, colormap, qmin, qmax, dpi, figformat)
+   #plot_scalarfield(q[:,:,:,t], map_projection, title, output_name, colormap, qmin, qmax, dpi, figformat)
 
 
 #------------------------------------------------------------------------------------------------
@@ -88,7 +88,6 @@ elif tc>=2:
 
 q_error = np.zeros((N,N,6,te))
 for t in range(ts,te):
-   print(t)
    # basename for plotting
    input_name  = datadir+basename+str(t)+'.txt'
    output_name = graphdir+'adv_cs_'+basename+str(t)+'.'+figformat
@@ -121,5 +120,4 @@ for t in range(ts,te):
    title = "N="+str(N)+", time = "+time+" days, CFL="+cfl+ '\n'+ \
    sp +'.hord'+str(hord)+'.dp'+str(dp)
    output_name = graphdir+'advcs_error_'+basename+str(t)+'.'+figformat
-   print(q_error[:,:,:,t])
    plot_scalarfield(q_error[:,:,:,t], map_projection, title, output_name, colormap, emin, emax, dpi, figformat)

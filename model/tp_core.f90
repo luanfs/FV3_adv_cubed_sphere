@@ -98,18 +98,24 @@ contains
    !==================================================================================================================
 
    if(inner_adv==1) then
-      do p = 1, nbfaces
-         qmt(isd:ied,jsd:jed,p) = q(isd:ied,jsd:jed,p)
-      enddo
+      !do p = 1, nbfaces
+      !$OMP PARALLEL WORKSHARE DEFAULT(NONE) &
+      !$OMP SHARED(qmt, q, isd, ied, jsd, jed)
+      qmt(isd:ied,jsd:jed,:) = q(isd:ied,jsd:jed,:)
+      !$OMP END PARALLEL WORKSHARE
    else if(inner_adv==2) then
+      !$OMP PARALLEL DO &
+      !$OMP DEFAULT(NONE) & 
+      !$OMP SHARED(qmt, mt_a, q) &
+      !$OMP SHARED(isd, ied, jsd, jed, nbfaces) &
+      !$OMP SCHEDULE(static)
       do p = 1, nbfaces
          qmt(isd:ied,jsd:jed,p) = q(isd:ied,jsd:jed,p)*mt_a(isd:ied,jsd:jed)
       enddo
+      !$OMP END PARALLEL DO
    endif
 
-   do p = 1, nbfaces
-      call yppm(fy2(:,:,p), qmt(:,:,p), cry(:,:,p), hord, isd,ied,isd,ied, js,je,jsd,jed, lim_fac)
-   enddo
+   call yppm(fy2, qmt, cry, hord, isd,ied,isd,ied, js,je,jsd,jed, lim_fac)
 
    !$OMP PARALLEL DO &
    !$OMP DEFAULT(NONE) & 
@@ -260,9 +266,7 @@ contains
       !$OMP END PARALLEL DO
    endif
 
-   do p = 1, nbfaces
-      call yppm(fy(:,:,p), q_j(:,:,p), cry(:,:,p), hord, is,ie,isd,ied, js,je,jsd,jed, lim_fac)
-   enddo
+   call yppm(fy, q_j, cry, hord, is,ie,isd,ied, js,je,jsd,jed, lim_fac)
 
 
    !==================================================================================================================
@@ -686,9 +690,9 @@ else if ( iord < 7 ) then
  integer, INTENT(IN) :: ifirst,ilast    ! Compute domain
  integer, INTENT(IN) :: isd,ied, js,je,jsd,jed
  integer, INTENT(IN) :: jord
- real(R_GRID), INTENT(IN) :: q(ifirst:ilast,jsd:jed)
- real(R_GRID), intent(in) :: c(isd:ied,js:je+1 )  ! Courant number
- real(R_GRID), INTENT(OUT):: flux(ifirst:ilast,js:je+1)   !  Flux
+ real(R_GRID), INTENT(IN) :: q(ifirst:ilast,jsd:jed,1:nbfaces)
+ real(R_GRID), intent(in) :: c(isd:ied,js:je+1,1:nbfaces )  ! Courant number
+ real(R_GRID), INTENT(OUT):: flux(ifirst:ilast,js:je+1,1:nbfaces)   !  Flux
  real(R_GRID), intent(IN) :: lim_fac
 ! Local:
  real(R_GRID):: dm(ifirst:ilast,js-2:je+2)
@@ -699,7 +703,7 @@ else if ( iord < 7 ) then
  logical, dimension(ifirst:ilast,js-1:je+1):: smt5, smt6
  logical, dimension(ifirst:ilast):: hi5, hi6
  real(R_GRID):: x0, xt, qtmp, pmp_1, lac_1, pmp_2, lac_2
- integer:: i, j, js1, je3, je1, mord
+ integer:: i, j, js1, je3, je1, mord, p
 
    !if ( .not.bounded_domain .and. grid_type < 3 ) then
 ! Cubed-sphere:
@@ -711,28 +715,29 @@ else if ( iord < 7 ) then
                          je1 = je+1
    !endif
 
+do p = 1, nbfaces
  mord = abs(jord)
 if (jord==0) then
    do i=ifirst,ilast
       do j=js1, je3
-         al(i,j) = p1*(q(i,j-1)+q(i,j)) + p2*(q(i,j-2)+q(i,j+1))
+         al(i,j) = p1*(q(i,j-1,p)+q(i,j,p)) + p2*(q(i,j-2,p)+q(i,j+1,p))
       enddo
    enddo
 
    do i=ifirst,ilast
       do j=js1, je1
-         bl(i,j) =  al(i,j  )-q(i,j)
-         br(i,j) =  al(i,j+1)-q(i,j)
+         bl(i,j) =  al(i,j  )-q(i,j,p)
+         br(i,j) =  al(i,j+1)-q(i,j,p)
       enddo
    enddo
 
 
    do i=ifirst,ilast
       do j=js,je+1
-         if( c(i,j)>0. ) then
-            flux(i,j) = q(i,j-1) + (1.-c(i,j))*(br(i,j-1)-c(i,j)*(bl(i,j-1)+br(i,j-1)))
+         if( c(i,j,p)>0. ) then
+            flux(i,j,p) = q(i,j-1,p) + (1.-c(i,j,p))*(br(i,j-1)-c(i,j,p)*(bl(i,j-1)+br(i,j-1)))
          else
-            flux(i,j) = q(i,j  ) + (1.+c(i,j))*(bl(i,j  )+c(i,j)*(bl(i,j  )+br(i,j  )))
+            flux(i,j,p) = q(i,j  ,p) + (1.+c(i,j,p))*(bl(i,j  )+c(i,j,p)*(bl(i,j  )+br(i,j  )))
          endif
       enddo
    enddo
@@ -742,7 +747,7 @@ else if ( jord < 7 ) then
 
    do j=js1, je3
       do i=ifirst,ilast
-         al(i,j) = p1*(q(i,j-1)+q(i,j)) + p2*(q(i,j-2)+q(i,j+1))
+         al(i,j) = p1*(q(i,j-1,p)+q(i,j,p)) + p2*(q(i,j-2,p)+q(i,j+1,p))
       enddo
    enddo
 
@@ -776,8 +781,8 @@ else if ( jord < 7 ) then
    if ( mord==1 ) then
        do j=js-1,je+1
           do i=ifirst,ilast
-             bl(i,j) = al(i,j  ) - q(i,j)
-             br(i,j) = al(i,j+1) - q(i,j)
+             bl(i,j) = al(i,j  ) - q(i,j,p)
+             br(i,j) = al(i,j+1) - q(i,j,p)
              b0(i,j) = bl(i,j) + br(i,j)
              smt5(i,j) = abs(lim_fac*b0(i,j)) < abs(bl(i,j)-br(i,j))
           enddo
@@ -785,14 +790,14 @@ else if ( jord < 7 ) then
        do j=js,je+1
 !DEC$ VECTOR ALWAYS
           do i=ifirst,ilast
-             if ( c(i,j) > 0. ) then
-                  fx1(i) = (1.-c(i,j))*(br(i,j-1) - c(i,j)*b0(i,j-1))
-                  flux(i,j) = q(i,j-1)
+             if ( c(i,j,p) > 0. ) then
+                  fx1(i) = (1.-c(i,j,p))*(br(i,j-1) - c(i,j,p)*b0(i,j-1))
+                  flux(i,j,p) = q(i,j-1,p)
              else
-                  fx1(i) = (1.+c(i,j))*(bl(i,j) + c(i,j)*b0(i,j))
-                  flux(i,j) = q(i,j)
+                  fx1(i) = (1.+c(i,j,p))*(bl(i,j) + c(i,j,p)*b0(i,j))
+                  flux(i,j,p) = q(i,j,p)
              endif
-             if (smt5(i,j-1).or.smt5(i,j)) flux(i,j) = flux(i,j) + fx1(i)
+             if (smt5(i,j-1).or.smt5(i,j)) flux(i,j,p) = flux(i,j,p) + fx1(i)
           enddo
        enddo
 
@@ -802,13 +807,13 @@ else if ( jord < 7 ) then
       do j=js,je+1
 !DEC$ VECTOR ALWAYS
          do i=ifirst,ilast
-            xt = c(i,j)
+            xt = c(i,j,p)
             if ( xt > 0. ) then
-                 qtmp = q(i,j-1)
-                 flux(i,j) = qtmp + (1.-xt)*(al(i,j)-qtmp-xt*(al(i,j-1)+al(i,j)-(qtmp+qtmp)))
+                 qtmp = q(i,j-1,p)
+                 flux(i,j,p) = qtmp + (1.-xt)*(al(i,j)-qtmp-xt*(al(i,j-1)+al(i,j)-(qtmp+qtmp)))
             else
-                 qtmp = q(i,j)
-                 flux(i,j) = qtmp + (1.+xt)*(al(i,j)-qtmp+xt*(al(i,j)+al(i,j+1)-(qtmp+qtmp)))
+                 qtmp = q(i,j,p)
+                 flux(i,j,p) = qtmp + (1.+xt)*(al(i,j)-qtmp+xt*(al(i,j)+al(i,j+1)-(qtmp+qtmp)))
             endif
          enddo
       enddo
@@ -817,8 +822,8 @@ else if ( jord < 7 ) then
 
         do j=js-1,je+1
            do i=ifirst,ilast
-              bl(i,j) = al(i,j  ) - q(i,j)
-              br(i,j) = al(i,j+1) - q(i,j)
+              bl(i,j) = al(i,j  ) - q(i,j,p)
+              br(i,j) = al(i,j+1) - q(i,j,p)
               b0(i,j) = bl(i,j) + br(i,j)
                    x0 = abs(b0(i,j))
                    xt = abs(bl(i,j)-br(i,j))
@@ -828,20 +833,20 @@ else if ( jord < 7 ) then
         enddo
         do j=js,je+1
            do i=ifirst,ilast
-              xt1(i) = c(i,j)
+              xt1(i) = c(i,j,p)
            enddo
            do i=ifirst,ilast
               if ( xt1(i) > 0. ) then
                    if( smt5(i,j-1) .or. smt6(i,j) ) then
-                       flux(i,j) = q(i,j-1) + (1.-xt1(i))*(br(i,j-1) - xt1(i)*b0(i,j-1))
+                       flux(i,j,p) = q(i,j-1,p) + (1.-xt1(i))*(br(i,j-1) - xt1(i)*b0(i,j-1))
                    else
-                       flux(i,j) = q(i,j-1)
+                       flux(i,j,p) = q(i,j-1,p)
                    endif
               else
                    if( smt6(i,j-1) .or. smt5(i,j) ) then
-                       flux(i,j) = q(i,j) + (1.+xt1(i))*(bl(i,j) + xt1(i)*b0(i,j))
+                       flux(i,j,p) = q(i,j,p) + (1.+xt1(i))*(bl(i,j) + xt1(i)*b0(i,j))
                    else
-                       flux(i,j) = q(i,j)
+                       flux(i,j,p) = q(i,j,p)
                    endif
               endif
            enddo
@@ -851,8 +856,8 @@ else if ( jord < 7 ) then
 
         do j=js-1,je+1
            do i=ifirst,ilast
-              bl(i,j) = al(i,j  ) - q(i,j)
-              br(i,j) = al(i,j+1) - q(i,j)
+              bl(i,j) = al(i,j  ) - q(i,j,p)
+              br(i,j) = al(i,j+1) - q(i,j,p)
               b0(i,j) = bl(i,j) + br(i,j)
                    x0 = abs(b0(i,j))
                    xt = abs(bl(i,j)-br(i,j))
@@ -862,7 +867,7 @@ else if ( jord < 7 ) then
         enddo
         do j=js,je+1
            do i=ifirst,ilast
-              xt1(i) = c(i,j)
+              xt1(i) = c(i,j,p)
               hi5(i) = smt5(i,j-1) .and. smt5(i,j)
               hi6(i) = smt6(i,j-1) .or.  smt6(i,j)
               hi5(i) = hi5(i) .or. hi6(i)
@@ -871,12 +876,12 @@ else if ( jord < 7 ) then
            do i=ifirst,ilast
                 if ( xt1(i) > 0. ) then
                      fx1(i) = (1.-xt1(i))*(br(i,j-1) - xt1(i)*b0(i,j-1))
-                     flux(i,j) = q(i,j-1)
+                     flux(i,j,p) = q(i,j-1,p)
                 else
                      fx1(i) = (1.+xt1(i))*(bl(i,j) + xt1(i)*b0(i,j))
-                     flux(i,j) = q(i,j)
+                     flux(i,j,p) = q(i,j,p)
                 endif
-                if ( hi5(i) ) flux(i,j) = flux(i,j) + fx1(i)
+                if ( hi5(i) ) flux(i,j,p) = flux(i,j,p) + fx1(i)
            enddo
         enddo
 
@@ -884,8 +889,8 @@ else if ( jord < 7 ) then
        if ( jord==5 ) then
           do j=js-1,je+1
              do i=ifirst,ilast
-                bl(i,j) = al(i,j  ) - q(i,j)
-                br(i,j) = al(i,j+1) - q(i,j)
+                bl(i,j) = al(i,j  ) - q(i,j,p)
+                br(i,j) = al(i,j+1) - q(i,j,p)
                 b0(i,j) = bl(i,j) + br(i,j)
                 smt5(i,j) = bl(i,j)*br(i,j) < 0.
              enddo
@@ -893,8 +898,8 @@ else if ( jord < 7 ) then
        elseif ( jord==-5 ) then
           do j=js-1,je+1
              do i=ifirst,ilast
-                bl(i,j) = al(i,j  ) - q(i,j)
-                br(i,j) = al(i,j+1) - q(i,j)
+                bl(i,j) = al(i,j  ) - q(i,j,p)
+                br(i,j) = al(i,j+1) - q(i,j,p)
                 b0(i,j) = bl(i,j) + br(i,j)
                 xt1(i) = br(i,j) - bl(i,j)
                  a4(i) = -3.*b0(i,j)
@@ -902,7 +907,7 @@ else if ( jord < 7 ) then
              enddo
              do i=ifirst,ilast
                 if( abs(xt1(i)) < -a4(i) ) then
-                  if( q(i,j)+0.25/a4(i)*xt1(i)**2+a4(i)*r12 < 0. ) then
+                  if( q(i,j,p)+0.25/a4(i)*xt1(i)**2+a4(i)*r12 < 0. ) then
                     if( .not. smt5(i,j) ) then
                         br(i,j) = 0.
                         bl(i,j) = 0.
@@ -921,8 +926,8 @@ else if ( jord < 7 ) then
        else
           do j=js-1,je+1
              do i=ifirst,ilast
-                bl(i,j) = al(i,j  ) - q(i,j)
-                br(i,j) = al(i,j+1) - q(i,j)
+                bl(i,j) = al(i,j  ) - q(i,j,p)
+                br(i,j) = al(i,j+1) - q(i,j,p)
                 b0(i,j) = bl(i,j) + br(i,j)
                 smt5(i,j) = 3.*abs(b0(i,j)) < abs(bl(i,j)-br(i,j))
              enddo
@@ -932,14 +937,14 @@ else if ( jord < 7 ) then
        do j=js,je+1
 !DEC$ VECTOR ALWAYS
           do i=ifirst,ilast
-             if ( c(i,j) > 0. ) then
-                  fx1(i) = (1.-c(i,j))*(br(i,j-1) - c(i,j)*b0(i,j-1))
-                  flux(i,j) = q(i,j-1)
+             if ( c(i,j,p) > 0. ) then
+                  fx1(i) = (1.-c(i,j,p))*(br(i,j-1) - c(i,j,p)*b0(i,j-1))
+                  flux(i,j,p) = q(i,j-1,p)
              else
-                  fx1(i) = (1.+c(i,j))*(bl(i,j) + c(i,j)*b0(i,j))
-                  flux(i,j) = q(i,j)
+                  fx1(i) = (1.+c(i,j,p))*(bl(i,j) + c(i,j,p)*b0(i,j))
+                  flux(i,j,p) = q(i,j,p)
              endif
-             if (smt5(i,j-1).or.smt5(i,j)) flux(i,j) = flux(i,j) + fx1(i)
+             if (smt5(i,j-1).or.smt5(i,j)) flux(i,j,p) = flux(i,j,p) + fx1(i)
           enddo
        enddo
 
@@ -953,14 +958,14 @@ else
 
   do j=js-2,je+2
      do i=ifirst,ilast
-             xt = 0.25*(q(i,j+1) - q(i,j-1))
-        dm(i,j) = sign(min(abs(xt), max(q(i,j-1), q(i,j), q(i,j+1)) - q(i,j),   &
-                           q(i,j) - min(q(i,j-1), q(i,j), q(i,j+1))), xt)
+             xt = 0.25*(q(i,j+1,p) - q(i,j-1,p))
+        dm(i,j) = sign(min(abs(xt), max(q(i,j-1,p), q(i,j,p), q(i,j+1,p)) - q(i,j,p),   &
+                           q(i,j,p) - min(q(i,j-1,p), q(i,j,p), q(i,j+1,p))), xt)
      enddo
   enddo
   do j=js1,je1+1
      do i=ifirst,ilast
-        al(i,j) = 0.5*(q(i,j-1)+q(i,j)) + r3*(dm(i,j-1) - dm(i,j))
+        al(i,j) = 0.5*(q(i,j-1,p)+q(i,j,p)) + r3*(dm(i,j-1) - dm(i,j))
         !al(i,j) = p1*(q(i,j-1)+q(i,j)) + p2*(q(i,j-2)+q(i,j+1))
      enddo
   enddo
@@ -969,8 +974,8 @@ else
        do j=js1,je1
           do i=ifirst,ilast
              xt = 2.*dm(i,j)
-             bl(i,j) = -sign(min(abs(xt), abs(al(i,j)-q(i,j))),   xt)
-             br(i,j) =  sign(min(abs(xt), abs(al(i,j+1)-q(i,j))), xt)
+             bl(i,j) = -sign(min(abs(xt), abs(al(i,j)-q(i,j,p))),   xt)
+             br(i,j) =  sign(min(abs(xt), abs(al(i,j+1)-q(i,j,p))), xt)
              !bl(i,j) =  al(i,j)-q(i,j)
              !br(i,j) =  al(i,j+1)-q(i,j)
           enddo
@@ -978,13 +983,13 @@ else
   elseif ( jord==10 ) then
        do j=js1-2,je1+1
           do i=ifirst,ilast
-             dq(i,j) = 2.*(q(i,j+1) - q(i,j))
+             dq(i,j) = 2.*(q(i,j+1,p) - q(i,j,p))
           enddo
        enddo
        do j=js1,je1
           do i=ifirst,ilast
-             bl(i,j) = al(i,j  ) - q(i,j)
-             br(i,j) = al(i,j+1) - q(i,j)
+             bl(i,j) = al(i,j  ) - q(i,j,p)
+             br(i,j) = al(i,j+1) - q(i,j,p)
              if ( abs(dm(i,j-1))+abs(dm(i,j))+abs(dm(i,j+1)) < near_zero ) then
                   bl(i,j) = 0.
                   br(i,j) = 0.
@@ -1002,15 +1007,15 @@ else
        do j=js1,je1
           do i=ifirst,ilast
              xt = ppm_fac*dm(i,j)
-             bl(i,j) = -sign(min(abs(xt), abs(al(i,j)-q(i,j))),   xt)
-             br(i,j) =  sign(min(abs(xt), abs(al(i,j+1)-q(i,j))), xt)
+             bl(i,j) = -sign(min(abs(xt), abs(al(i,j)-q(i,j,p))),   xt)
+             br(i,j) =  sign(min(abs(xt), abs(al(i,j+1)-q(i,j,p))), xt)
           enddo
        enddo
   elseif ( jord==7 .or. jord==12 ) then
        do j=js1,je1
           do i=ifirst,ilast
-             bl(i,j) = al(i,j  ) - q(i,j)
-             br(i,j) = al(i,j+1) - q(i,j)
+             bl(i,j) = al(i,j  ) - q(i,j,p)
+             br(i,j) = al(i,j+1) - q(i,j,p)
               xt1(i) = br(i,j) - bl(i,j)
                a4(i) = -3.*(br(i,j) + bl(i,j))
               hi5(i) = bl(i,j)*br(i,j) > 0.
@@ -1018,7 +1023,7 @@ else
           enddo
           do i=ifirst,ilast
              if( hi6(i) ) then
-                 if( q(i,j)+0.25/a4(i)*xt1(i)**2+a4(i)*r12 < 0. ) then
+                 if( q(i,j,p)+0.25/a4(i)*xt1(i)**2+a4(i)*r12 < 0. ) then
                     if( hi5(i) ) then
                         br(i,j) = 0.
                         bl(i,j) = 0.
@@ -1034,15 +1039,15 @@ else
   else
        do j=js1,je1
           do i=ifirst,ilast
-             bl(i,j) = al(i,j  ) - q(i,j)
-             br(i,j) = al(i,j+1) - q(i,j)
+             bl(i,j) = al(i,j  ) - q(i,j,p)
+             br(i,j) = al(i,j+1) - q(i,j,p)
           enddo
        enddo
   endif
   if ( jord==9 .or. jord==13 ) then
 ! Positive definite constraint:
      do j=js1,je1
-        call pert_ppm(ilast-ifirst+1, q(ifirst,j), bl(ifirst,j), br(ifirst,j), 0)
+        call pert_ppm(ilast-ifirst+1, q(ifirst,j,p), bl(ifirst,j), br(ifirst,j), 0)
      enddo
   endif
   !if (.not. bounded_domain .and. grid_type<3) then
@@ -1101,28 +1106,28 @@ endif
       enddo
       do j=js,je+1
          do i=ifirst,ilast
-            if ( c(i,j) > 0. ) then
-                 fx1(i) = (1.-c(i,j))*(br(i,j-1) - c(i,j)*b0(i,j-1))
-                 flux(i,j) = q(i,j-1)
+            if ( c(i,j,p) > 0. ) then
+                 fx1(i) = (1.-c(i,j,p))*(br(i,j-1) - c(i,j,p)*b0(i,j-1))
+                 flux(i,j,p) = q(i,j-1,p)
             else
-                 fx1(i) = (1.+c(i,j))*(bl(i,j) + c(i,j)*b0(i,j))
-                 flux(i,j) = q(i,j)
+                 fx1(i) = (1.+c(i,j,p))*(bl(i,j) + c(i,j,p)*b0(i,j))
+                 flux(i,j,p) = q(i,j,p)
             endif
-            if ( smt5(i,j-1).or.smt5(i,j) ) flux(i,j) = flux(i,j) + fx1(i)
+            if ( smt5(i,j-1).or.smt5(i,j) ) flux(i,j,p) = flux(i,j,p) + fx1(i)
          enddo
       enddo
   else
       do j=js,je+1
          do i=ifirst,ilast
-            if( c(i,j)>0. ) then
-                flux(i,j) = q(i,j-1) + (1.-c(i,j))*(br(i,j-1)-c(i,j)*(bl(i,j-1)+br(i,j-1)))
+            if( c(i,j,p)>0. ) then
+                flux(i,j,p) = q(i,j-1,p) + (1.-c(i,j,p))*(br(i,j-1)-c(i,j,p)*(bl(i,j-1)+br(i,j-1)))
             else
-                flux(i,j) = q(i,j  ) + (1.+c(i,j))*(bl(i,j  )+c(i,j)*(bl(i,j)+br(i,j)))
+                flux(i,j,p) = q(i,j  ,p) + (1.+c(i,j,p))*(bl(i,j  )+c(i,j,p)*(bl(i,j)+br(i,j)))
             endif
          enddo
       enddo
   endif
-
+enddo
  end subroutine yppm
 
 

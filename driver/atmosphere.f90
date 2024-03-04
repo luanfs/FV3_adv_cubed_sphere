@@ -26,6 +26,9 @@ subroutine atmosphere_main(atm)
       ! compute one time step
       call atmosphere_timestep(atm)
 
+      ! compute initial diagnostics
+      !call atmosphere_diag(atm, first_step)
+
       ! output data
       call atmosphere_output(atm, tstep)
 
@@ -240,10 +243,10 @@ subroutine atmosphere_diag(atm, first_step)
         atm%mass_qa = atm%mass_qa + sum(atm%qa(is:ie,js:je,p) * atm%gridstruct%area(is:ie,js:je))
      enddo
   endif
-
    if(.not. first_step) then
       atm%mass_qa_var = (atm%mass_qa0-atm%mass_qa)/atm%mass_qa0
    endif
+!print*, atm%mass_qa, atm%mass_qa0, atm%mass_qa_var
 end subroutine atmosphere_diag
 
 

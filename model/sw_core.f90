@@ -352,8 +352,63 @@ subroutine div_mass_fixer(bd, gridstruct, div, flux_x, flux_y, mass_fixer)
    enddo
    !$OMP END PARALLEL DO
 
+   ! div projection
+   if(mass_fixer>=2) then
+      call divergence_projection(bd, gridstruct, div, mass_fixer)
+   endif
 end subroutine div_mass_fixer
 
+subroutine divergence_projection(bd, gridstruct, div, mass_fixer)
+   !---------------------------------------------------
+   ! Uses the L2 divergence projection on the zero average grid
+   ! function space to ensure mass conservation
+   !---------------------------------------------------
+   type(fv_grid_bounds_type), intent(INOUT) :: bd
+   type(fv_grid_type), intent(INOUT), target :: gridstruct
+   real(R_GRID), intent(INOUT):: div(bd%is:bd%ie, bd%js:bd%je, 1:nbfaces)
+   real(R_GRID) :: l, divmass, a2
+   integer, intent(IN) :: mass_fixer
+   integer :: p
+   integer :: is, ie, isd, ied, ng
+   integer :: js, je, jsd, jed
+   integer :: i, j
+
+   is  = bd%is
+   ie  = bd%ie
+   js  = bd%js
+   je  = bd%je
+ 
+   isd = bd%isd
+   ied = bd%ied
+   jsd = bd%jsd
+   jed = bd%jed
+
+
+   divmass = mass_computation(bd, gridstruct, div)
+   a2 = nbfaces*sum(gridstruct%area(is:ie,js:je)*gridstruct%area(is:ie,js:je))
+   l = divmass/a2
+
+   if (mass_fixer==2) then
+       do p = 1, nbfaces
+         !$OMP PARALLEL WORKSHARE DEFAULT(NONE) &
+         !$OMP SHARED(div,l,p,is,ie,js,je,gridstruct)
+         div(is:ie,js:je,p) = div(is:ie,js:je,p) - gridstruct%area(is:ie,js:je)*l
+         !$OMP END PARALLEL WORKSHARE
+       enddo
+   else if (mass_fixer==3) then
+       !!$OMP PARALLEL WORKSHARE DEFAULT(NONE) &
+       !!$OMP SHARED(div_ugq, l, i0, iend, j0, jend, advsimul, mesh)
+       !div_ugq%f(i0  ,j0:jend,:) = div_ugq%f(i0  ,j0:jend,:) - l*mesh%mt_pc(i0  ,j0:jend,:)
+       !div_ugq%f(iend,j0:jend,:) = div_ugq%f(iend,j0:jend,:) - l*mesh%mt_pc(iend,j0:jend,:)
+       !div_ugq%f(i0+1:iend-1,j0  ,:) = div_ugq%f(i0+1:iend-1,j0  ,:) - l*mesh%mt_pc(i0+1:iend-1,j0  ,:)
+       !div_ugq%f(i0+1:iend-1,jend,:) = div_ugq%f(i0+1:iend-1,jend,:) - l*mesh%mt_pc(i0+1:iend-1,jend,:)
+       !!$OMP END PARALLEL WORKSHARE
+
+   else
+       print*, 'ERROR in divergence_projection: invalid mass fixer: ', mass_fixer
+       stop
+   end if
+end subroutine divergence_projection
 subroutine average_flux_at_cube_intefaces(bd, flux_x, flux_y)
    !---------------------------------------------------------------------------------
    ! AVERAGE_FLUX_AT_CUBE_INTERFACES
@@ -422,5 +477,32 @@ subroutine average_flux_at_cube_intefaces(bd, flux_x, flux_y)
 
    !$OMP END PARALLEL WORKSHARE
 end subroutine average_flux_at_cube_intefaces
+
+function mass_computation(bd, gridstruct, q)
+   type(fv_grid_bounds_type), intent(INOUT) :: bd
+   type(fv_grid_type), intent(INOUT), target :: gridstruct
+   real(R_GRID), intent(INOUT):: q(bd%is:bd%ie, bd%js:bd%je, 1:nbfaces)
+   real(R_GRID) :: mass_computation
+   integer :: is, ie
+   integer :: js, je
+   integer :: p
+ 
+   is  = bd%is
+   ie  = bd%ie
+   js  = bd%js
+   je  = bd%je
+ 
+   !---------------------------------------------------------
+   ! Computes the mass of the scalar field Q
+   !---------------------------------------------------------
+   mass_computation = 0.d0
+   do p = 1, nbfaces
+   !$OMP PARALLEL WORKSHARE DEFAULT(NONE) &
+   !$OMP SHARED(Q,gridstruct) &
+   !$OMP SHARED(is, ie, js, je, p)
+   mass_computation = mass_computation + sum(Q(is:ie,js:je,p)*gridstruct%area(is:ie,js:je))
+   !$OMP END PARALLEL WORKSHARE
+   enddo
+end function mass_computation
 
 end module sw_core 

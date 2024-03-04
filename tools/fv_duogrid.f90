@@ -518,7 +518,7 @@ subroutine cube_rmp_corner_offdiag(bd, L, N_buffer, S_buffer, E_buffer, W_buffer
            do n = 1, L%order
               S_buffer(i, j, p) = S_buffer(i, j, p) + S_buffer_local(stencil_start(i,g2)+n-1, j, p)*poly(i,g2,n)
            enddo
-           !W_buffer(i, j, p) = S_buffer(i, j, p)
+           W_buffer(i, j, p) = S_buffer(i, j, p)
         enddo
      enddo
   enddo

@@ -26,9 +26,6 @@ subroutine atmosphere_main(atm)
       ! compute one time step
       call atmosphere_timestep(atm)
 
-      ! compute diagnostics
-      call atmosphere_diag(atm, first_step)
-
       ! output data
       call atmosphere_output(atm, tstep)
 
@@ -147,6 +144,9 @@ subroutine atmosphere_output(atm, step)
    character (len=60):: filename
 
    if(step==0 .or. step==atm%total_tsteps .or. mod(step,atm%plotstep)==0 )then
+      ! compute diagnostics
+      call atmosphere_diag(atm, .false.)
+
       write(nplot, '(i8)') atm%nplot
       filename = trim(datadir)//trim(atm%simulation_name)//"t"//trim(adjustl(nplot))//".txt"
       print*, 'saving ', filename

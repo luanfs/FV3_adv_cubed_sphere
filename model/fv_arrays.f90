@@ -128,12 +128,19 @@ type fv_grid_type
    real(R_GRID), allocatable, dimension(:,:,:,:,:) :: c_l2contra, d_l2contra
 
    real(R_GRID), allocatable ::  mt(:,:) ! metric term
+   real(R_GRID), allocatable :: rmt(:,:) ! metric term
    real(R_GRID), allocatable ::  area(:,:)
    real(R_GRID), allocatable :: rarea(:,:)
    real(R_GRID), allocatable :: sina_c(:,:), sina_d(:,:)
    real(R_GRID), allocatable :: cosa_c(:,:), cosa_d(:,:)
    real(R_GRID), allocatable :: dx_u(:,:), dy_u(:,:)
    real(R_GRID), allocatable :: dx_v(:,:), dy_v(:,:)
+   real(R_GRID), allocatable :: dxa(:,:) , dya(:,:)
+
+   real(R_GRID), allocatable :: rdx_u(:,:), rdy_u(:,:)
+   real(R_GRID), allocatable :: rdx_v(:,:), rdy_v(:,:)
+   real(R_GRID), allocatable :: rdxa(:,:) , rdya(:,:)
+
 
    real(R_GRID) :: dx, dy
    integer :: npx       ! number of interior cells (x direction)

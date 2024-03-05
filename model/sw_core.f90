@@ -81,12 +81,12 @@ subroutine departure_cfl(gridstruct, bd, crx, cry, &
     select case (dp)
       case (1)
          ! CFL for RK1
-         call  compute_cfl(gridstruct, bd, crx, cry, uc, vc, dt, 0)
+         call  compute_cfl(gridstruct, bd, crx, cry, uc, vc, dt, 0, dp)
 
       case (2)
          ! CFL for RK2
-         call  compute_cfl(gridstruct, bd, crx_old          , cry_old          , uc_old, vc_old, dt, 0)
-         call  compute_cfl(gridstruct, bd, crx_time_centered, cry_time_centered, uc    , vc    , dt, 1)
+         call  compute_cfl(gridstruct, bd, crx_old          , cry_old          , uc_old, vc_old, dt, 0, dp)
+         call  compute_cfl(gridstruct, bd, crx_time_centered, cry_time_centered, uc    , vc    , dt, 1, dp)
 
          !$OMP PARALLEL DO &
          !$OMP DEFAULT(NONE) & 
@@ -145,7 +145,7 @@ subroutine departure_cfl(gridstruct, bd, crx, cry, &
 
 end subroutine departure_cfl
 
-subroutine compute_cfl(gridstruct, bd, crx, cry, uc, vc, dt, h)
+subroutine compute_cfl(gridstruct, bd, crx, cry, uc, vc, dt, h, dp)
    !--------------------------------------------------
    ! Compute CFL in x and y directions at C grid
    !--------------------------------------------------
@@ -157,8 +157,9 @@ subroutine compute_cfl(gridstruct, bd, crx, cry, uc, vc, dt, h)
    real(R_GRID), intent(IN)   , dimension(bd%isd:bd%ied    , bd%jsd:bd%jed+1  , 1:nbfaces) :: vc
    real(R_GRID), intent(IN) :: dt
    integer, intent(IN):: h
-   real(R_GRID), pointer, dimension(:, :) :: dxc, dyc
+   real(R_GRID), pointer, dimension(:, :) :: rdxc, rdyc, rdxa, rdya
 
+   integer, intent(IN):: dp ! departute point method !1 - Euler; 2-RK2
    ! aux
    integer :: i, j, p
    integer :: is,  ie,  js,  je
@@ -174,32 +175,73 @@ subroutine compute_cfl(gridstruct, bd, crx, cry, uc, vc, dt, h)
    jsd = bd%jsd
    jed = bd%jed
 
-   dxc => gridstruct%dx_u
-   dyc => gridstruct%dy_v
+   rdxc => gridstruct%rdx_u
+   rdyc => gridstruct%rdy_v
+   rdxa => gridstruct%rdxa
+   rdya => gridstruct%rdya
 
-   !$OMP PARALLEL DO &
-   !$OMP DEFAULT(NONE) & 
-   !$OMP SHARED(crx, cry, uc, vc) &
-   !$OMP SHARED(dt, dxc, dyc) & 
-   !$OMP SHARED(is, ie, js, je, nbfaces, h) &
-   !$OMP SHARED(isd, ied, jsd, jed) &
-   !$OMP PRIVATE(i, j) &
-   !$OMP SCHEDULE(static)  
-   do p = 1, nbfaces
-      ! Compute CFL at timestep n
-      do j=jsd,jed
-         do i=is-h,ie+h+1
-           crx(i,j,p) = uc(i,j,p)*dt/dxc(i,j)
-        enddo
-      enddo
+   if(dp==1) then
+      !$OMP PARALLEL DO &
+      !$OMP DEFAULT(NONE) & 
+      !$OMP SHARED(crx, cry, uc, vc) &
+      !$OMP SHARED(dt, rdxa, rdya, rdxc, rdyc)  & 
+      !$OMP SHARED(is, ie, js, je, nbfaces, h) &
+      !$OMP SHARED(isd, ied, jsd, jed) &
+      !$OMP PRIVATE(i, j) &
+      !$OMP SCHEDULE(static)  
+      do p = 1, nbfaces
+         ! Compute CFL at timestep n
+         do j=jsd,jed
+            do i=is-h,ie+h+1
+               !if(uc(i,j,p)>0.d0) then
+               !   crx(i,j,p) = uc(i,j,p)*dt*rdxa(i,j)
+               !else
+               !   crx(i,j,p) = uc(i,j,p)*dt*rdxa(i+1,j)
+               !endif
+               crx(i,j,p) = uc(i,j,p)*dt*rdxc(i,j)
+           enddo
+         enddo
 
-      do j=js-h,je+h+1
-         do i=isd,ied
-           cry(i,j,p) = vc(i,j,p)*dt/dyc(i,j)
-        enddo
+         do j=js-h,je+h+1
+            do i=isd,ied
+               !if(vc(i,j,p)>0.d0) then
+               !   cry(i,j,p) = vc(i,j,p)*dt*rdya(i,j)
+               !else
+               !   cry(i,j,p) = vc(i,j,p)*dt*rdya(i,j+1)
+               !endif
+               cry(i,j,p) = vc(i,j,p)*dt*rdyc(i,j)
+           enddo
+         enddo
       enddo
-   enddo
-   !$OMP END PARALLEL DO
+      !$OMP END PARALLEL DO
+
+   else if(dp==2) then
+      !$OMP PARALLEL DO &
+      !$OMP DEFAULT(NONE) & 
+      !$OMP SHARED(crx, cry, uc, vc) &
+      !$OMP SHARED(dt, rdxc, rdyc) & 
+      !$OMP SHARED(is, ie, js, je, nbfaces, h) &
+      !$OMP SHARED(isd, ied, jsd, jed) &
+      !$OMP PRIVATE(i, j) &
+      !$OMP SCHEDULE(static)  
+      do p = 1, nbfaces
+         ! Compute CFL at timestep n
+         do j=jsd,jed
+            do i=is-h,ie+h+1
+              crx(i,j,p) = uc(i,j,p)*dt*rdxc(i,j)
+           enddo
+         enddo
+
+         do j=js-h,je+h+1
+            do i=isd,ied
+              cry(i,j,p) = vc(i,j,p)*dt*rdyc(i,j)
+           enddo
+         enddo
+      enddo
+      !$OMP END PARALLEL DO
+   endif 
+
+
 end subroutine compute_cfl
 
 subroutine compute_ra_x_and_ra_y(ra_x, ra_y, xfx, yfx, crx, cry, gridstruct, bd)
@@ -268,7 +310,7 @@ subroutine compute_xfx_and_yfx(xfx, yfx, crx, cry, gridstruct, bd, inner_adv)
     integer :: is, ie, js, je
     integer :: isd, ied, jsd, jed
  
-    real(R_GRID), pointer, dimension(:,:)   :: area
+    real(R_GRID), pointer, dimension(:,:)   :: area, mt
     real(R_GRID), pointer, dimension(:, :) :: dx_u, dy_u
     real(R_GRID), pointer, dimension(:, :) :: dx_v, dy_v
     real(R_GRID), pointer, dimension(:, :) :: sina_u, sina_v
@@ -277,6 +319,7 @@ subroutine compute_xfx_and_yfx(xfx, yfx, crx, cry, gridstruct, bd, inner_adv)
 
 
     area => gridstruct%area
+    mt => gridstruct%mt
     sina_u  => gridstruct%sina_c
     sina_v  => gridstruct%sina_d
     dx_u  => gridstruct%dx_u
@@ -299,7 +342,7 @@ subroutine compute_xfx_and_yfx(xfx, yfx, crx, cry, gridstruct, bd, inner_adv)
     !$OMP DEFAULT(NONE) & 
     !$OMP SHARED(is, ie, js, je, nbfaces) &
     !$OMP SHARED(isd, ied, jsd, jed, inner_adv) &
-    !$OMP SHARED(xfx, yfx, crx, cry, dx_u, dx_v, dy_u, dy_v, sina_u, sina_v, dx, dy) &
+    !$OMP SHARED(xfx, yfx, crx, cry, dx_u, dx_v, dy_u, dy_v, sina_u, sina_v, dx, dy, area, mt) &
     !$OMP PRIVATE(i, j) &
     !$OMP SCHEDULE(static) 
     do p = 1, nbfaces
@@ -308,8 +351,8 @@ subroutine compute_xfx_and_yfx(xfx, yfx, crx, cry, gridstruct, bd, inner_adv)
          xfx(is:ie+1,jsd:jed,p) = crx(is:ie+1,jsd:jed,p)*dx_u(is:ie+1,jsd:jed)*dy_u(is:ie+1,jsd:jed)*sina_u(is:ie+1,jsd:jed)
          yfx(isd:ied,js:je+1,p) = cry(isd:ied,js:je+1,p)*dx_v(isd:ied,js:je+1)*dy_v(isd:ied,js:je+1)*sina_v(isd:ied,js:je+1)
       else
-         xfx(is:ie+1,jsd:jed,p) = crx(is:ie+1,jsd:jed,p)*dx*dy
-         yfx(isd:ied,js:je+1,p) = cry(isd:ied,js:je+1,p)*dx*dy
+         xfx(is:ie+1,jsd:jed,p) = crx(is:ie+1,jsd:jed,p)*dx*dy!area(is:ie+1,jsd:jed)/mt(is:ie+1,jsd:jed)
+         yfx(isd:ied,js:je+1,p) = cry(isd:ied,js:je+1,p)*dx*dy!area(isd:ied,js:je+1)/mt(isd:ied,js:je+1)
       endif 
     enddo
     !$OMP END PARALLEL DO
@@ -409,6 +452,7 @@ subroutine divergence_projection(bd, gridstruct, div, mass_fixer)
        stop
    end if
 end subroutine divergence_projection
+
 subroutine average_flux_at_cube_intefaces(bd, flux_x, flux_y)
    !---------------------------------------------------------------------------------
    ! AVERAGE_FLUX_AT_CUBE_INTERFACES

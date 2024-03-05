@@ -25,8 +25,15 @@ subroutine init_grid(gridstruct, bd)
    real(R_GRID), pointer, dimension(:,:) :: area
    real(R_GRID), pointer, dimension(:,:) :: rarea
    real(R_GRID), pointer, dimension(:,:) :: mt
+   real(R_GRID), pointer, dimension(:,:) :: rmt
    real(R_GRID), pointer, dimension(:,:) :: dx_u, dy_u
    real(R_GRID), pointer, dimension(:,:) :: dx_v, dy_v
+   real(R_GRID), pointer, dimension(:,:) :: dxa , dya
+
+   real(R_GRID), pointer, dimension(:,:) :: rdx_u, rdy_u
+   real(R_GRID), pointer, dimension(:,:) :: rdx_v, rdy_v
+   real(R_GRID), pointer, dimension(:,:) :: rdxa , rdya
+
 
    real(R_GRID):: L, aref, Rref, dx, x, y
    real(R_GRID), allocatable :: gridline_a(:)
@@ -67,6 +74,7 @@ subroutine init_grid(gridstruct, bd)
    allocate(gridstruct% area(isd:ied  , jsd:jed  ))
    allocate(gridstruct%rarea(isd:ied  , jsd:jed  ))
    allocate(gridstruct%   mt(isd:ied  , jsd:jed  ))
+   allocate(gridstruct% rmt(isd:ied  , jsd:jed  ))
 
    allocate(gridstruct%sina_c(isd:ied+1, jsd:jed  ))
    allocate(gridstruct%cosa_c(isd:ied+1, jsd:jed  ))
@@ -78,6 +86,19 @@ subroutine init_grid(gridstruct, bd)
  
    allocate(gridstruct%dx_v(isd:ied  , jsd:jed+1))
    allocate(gridstruct%dy_u(isd:ied+1, jsd:jed  ))
+
+   allocate(gridstruct%dxa(isd:ied, jsd:jed))
+   allocate(gridstruct%dya(isd:ied, jsd:jed))
+
+   allocate(gridstruct%rdx_u(isd:ied+1, jsd:jed  ))
+   allocate(gridstruct%rdy_v(isd:ied  , jsd:jed+1))
+ 
+   allocate(gridstruct%rdx_v(isd:ied  , jsd:jed+1))
+   allocate(gridstruct%rdy_u(isd:ied+1, jsd:jed  ))
+
+   allocate(gridstruct%rdxa(isd:ied, jsd:jed))
+   allocate(gridstruct%rdya(isd:ied, jsd:jed))
+
 
    allocate(gridstruct%c_contra2l(1:2,1:2,isd:ied+1, jsd:jed, 1:nbfaces  ))
    allocate(gridstruct%c_l2contra(1:2,1:2,isd:ied+1, jsd:jed, 1:nbfaces  ))
@@ -93,10 +114,22 @@ subroutine init_grid(gridstruct, bd)
    area  => gridstruct%area
    rarea => gridstruct%rarea
    mt    => gridstruct%mt
-   dx_u   => gridstruct%dx_u
-   dx_v   => gridstruct%dx_v
-   dy_u   => gridstruct%dy_u
-   dy_v   => gridstruct%dy_v
+   rmt   => gridstruct%rmt
+   dx_u  => gridstruct%dx_u
+   dx_v  => gridstruct%dx_v
+   dy_u  => gridstruct%dy_u
+   dy_v  => gridstruct%dy_v
+   dxa   => gridstruct%dxa
+   dya   => gridstruct%dya
+
+   rdx_u  => gridstruct%rdx_u
+   rdx_v  => gridstruct%rdx_v
+   rdy_u  => gridstruct%rdy_u
+   rdy_v  => gridstruct%rdy_v
+   rdxa   => gridstruct%rdxa
+   rdya   => gridstruct%rdya
+
+
 
    if(gridstruct%grid_type==0) then !equiangular grid
       aref = dasin(1.d0/dsqrt(3.d0))
@@ -228,26 +261,40 @@ subroutine init_grid(gridstruct, bd)
    do i = is-1, ie+2
       do j = jsd, jed
          dx_u(i,j) = arclen(agrid(i,j,1)%p, agrid(i-1,j,1)%p, erad )
+         rdx_u(i,j) = 1.d0/dx_u(i,j)
       enddo
    enddo
 
    do j = js-1, jed-1
       do i = isd, ied
          dy_v(i,j) = arclen(agrid(i,j,1)%p, agrid(i,j-1,1)%p, erad )
+         rdy_v(i,j) = 1.d0/dy_v(i,j)
       enddo
    enddo
 
    do i = isd, ied+1
       do j = jsd, jed
          dy_u(i,j) = arclen(bgrid(i,j,1)%p, bgrid(i,j+1,1)%p, erad )
+         rdy_u(i,j) = 1.d0/dy_u(i,j)
       enddo
    enddo
 
    do j = jsd, jed+1
       do i = isd, ied
          dx_v(i,j) = arclen(bgrid(i,j,1)%p, bgrid(i+1,j,1)%p, erad )
+         rdx_v(i,j) = 1.d0/dx_v(i,j)
       enddo
    enddo
+
+   do j = jsd, jed
+      do i = isd, ied
+         dxa(i,j) = arclen(cgrid(i,j,1)%p, cgrid(i+1,j,1)%p, erad )
+         dya(i,j) = arclen(dgrid(i,j,1)%p, dgrid(i,j+1,1)%p, erad )
+         rdxa(i,j) = 1.d0/dxa(i,j)
+         rdya(i,j) = 1.d0/dya(i,j)
+      enddo
+   enddo
+ 
  
    !--------------------------------------------------------------------------------------------
    ! compute agrid metric term
@@ -256,6 +303,7 @@ subroutine init_grid(gridstruct, bd)
       do j = jsd, jed
          y = gridline_a(j)
          call metricterm(gridstruct%grid_type, x, y, mt(i,j), erad)
+         rmt(i,j) = 1.d0/mt(i,j)
          ! area(i,j) = mt(i,j)*dx*dx
          !rarea(i,j) = 1.d0/area(i,j)
       enddo
@@ -275,7 +323,6 @@ subroutine init_grid(gridstruct, bd)
          rarea(i,j) = 1.d0/area(i,j)
       enddo
    enddo
-
    !--------------------------------------------------------------------------------------------
 
    call compute_conversion_matrices(bd, gridstruct)
